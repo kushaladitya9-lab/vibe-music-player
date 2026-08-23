@@ -45,7 +45,7 @@
   <!-- Dynamic Weather Canvas -->
   <canvas id="weather-canvas"></canvas>
 
-  <!-- Top Action Container (Mood & Zen Mode) -->
+  <!-- Top Action Container (Mood, Zen Mode & In-App Refresh) -->
   <div class="scene-switcher-container">
     <button class="scene-btn" id="mood-toggle-btn" title="Click to cycle Mood">
       <i class="ri-sun-cloudy-line" id="mood-icon"></i>
@@ -55,9 +55,12 @@
       <i class="ri-focus-3-line"></i>
       <span>Zen</span>
     </button>
+    <button class="scene-btn refresh-btn" id="app-refresh-btn" title="Check Updates & Sync App">
+      <i class="ri-refresh-line" id="refresh-icon"></i>
+    </button>
   </div>
 
-  <!-- 2 Dedicated Bouncing Screen Balls -->
+  <!-- 2 Dedicated Transparent Bouncing Screen Balls -->
   <button class="bounce-ball" id="open-drawer-btn" title="Open Playlist">
     <i class="ri-play-list-2-fill"></i>
     <span class="float-badge" id="track-count">0</span>

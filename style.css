@@ -102,7 +102,7 @@ body.zen-mode .draggable-volume-box {
   z-index: 2;
 }
 
-/* Top Quick Switcher Pill & Zen Button */
+/* Top Quick Switcher Pill, Zen Button & Refresh Button */
 .scene-switcher-container {
   position: fixed;
   top: clamp(16px, 3vh, 26px);
@@ -111,7 +111,7 @@ body.zen-mode .draggable-volume-box {
   z-index: 15;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 7px;
   transition: var(--transition);
 }
 
@@ -121,12 +121,12 @@ body.zen-mode .draggable-volume-box {
   -webkit-backdrop-filter: blur(16px);
   border: 1px solid rgba(255, 255, 255, 0.25);
   color: #fff;
-  padding: 6px 16px;
+  padding: 6px 14px;
   border-radius: 50px;
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 0.82rem;
+  gap: 6px;
+  font-size: 0.8rem;
   font-weight: 700;
   cursor: pointer;
   box-shadow: 0 4px 15px rgba(0,0,0,0.3);
@@ -139,42 +139,56 @@ body.zen-mode .draggable-volume-box {
 }
 
 .zen-btn {
-  padding: 6px 12px;
+  padding: 6px 11px;
 }
 
 .zen-btn i {
   color: var(--accent-gold);
 }
 
-/* 2 Bouncing Screen Balls */
+.refresh-btn {
+  padding: 6px 10px;
+}
+
+.refresh-btn i {
+  font-size: 0.95rem;
+  color: #54a0ff;
+  transition: transform 0.3s ease;
+}
+
+.spin-anim {
+  animation: spin 0.7s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+/* 2 Dedicated Bouncing Screen Balls (Transparent Glassmorphism) */
 .bounce-ball {
   position: fixed !important;
   top: 0 !important;
   left: 0 !important;
   margin: 0 !important;
-  width: 54px;
-  height: 54px;
+  width: 52px;
+  height: 52px;
   border-radius: 50%;
-  background: rgba(18, 22, 28, 0.85);
+  background: rgba(255, 255, 255, 0.08) !important;
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1.5px solid rgba(255, 255, 255, 0.35);
+  border: 1.5px solid rgba(255, 255, 255, 0.3) !important;
   color: #ffffff;
   display: grid;
   place-items: center;
-  font-size: 1.4rem;
+  font-size: 1.35rem;
   cursor: pointer;
   z-index: 9999 !important;
   pointer-events: auto !important;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35), inset 0 0 10px rgba(255, 255, 255, 0.08);
   will-change: transform;
   touch-action: manipulation;
   transition: background 0.2s ease, border-color 0.2s ease, opacity 0.3s ease;
 }
 
 .bounce-ball:hover {
-  background: rgba(255, 255, 255, 0.3);
-  border-color: var(--accent-gold);
+  background: rgba(255, 255, 255, 0.22) !important;
+  border-color: var(--accent-gold) !important;
 }
 
 .bounce-ball * {
@@ -183,14 +197,14 @@ body.zen-mode .draggable-volume-box {
 
 .float-badge {
   position: absolute;
-  top: -3px;
-  right: -3px;
+  top: -2px;
+  right: -2px;
   background: #ffffff;
   color: #000;
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   font-weight: 800;
-  width: 20px;
-  height: 20px;
+  width: 19px;
+  height: 19px;
   border-radius: 50%;
   display: grid;
   place-items: center;

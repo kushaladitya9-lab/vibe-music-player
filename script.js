@@ -114,7 +114,7 @@ let currentTimeEl, durationTimeEl, drawerBackdrop, playlistDrawer;
 let playlistScrollList, trackCountBadge, audioFileInput, drawerAudioFileInput;
 let mainAudioInput, uploadModal, uploadStatusText;
 let mainHeartBtn, mainHeartIcon, likedCountBadge;
-let moodToggleBtn, moodIcon, moodLabel, zenToggleBtn;
+let moodToggleBtn, moodIcon, moodLabel, zenToggleBtn, appRefreshBtn, refreshIcon;
 let searchInput, tabAllBtn, tabLikedBtn, rainSlider;
 let volumeSlider, volumeIcon, draggableVolume;
 let createPlaylistBtn, customPlaylistsContainer;
@@ -160,6 +160,8 @@ function initPlayer() {
   moodIcon = document.getElementById("mood-icon");
   moodLabel = document.getElementById("mood-label");
   zenToggleBtn = document.getElementById("zen-toggle-btn");
+  appRefreshBtn = document.getElementById("app-refresh-btn");
+  refreshIcon = document.getElementById("refresh-icon");
 
   searchInput = document.getElementById("playlist-search-input");
   tabAllBtn = document.getElementById("tab-all-btn");
@@ -246,9 +248,7 @@ async function fetchSupabaseSongs() {
 }
 
 function rebuildPlaylist() {
-  // Merge base, supabase, and local tracks
   playlist = [...baseTracks, ...supabaseTracks, ...localTracks].map(track => {
-    // Apply user-edited metadata overrides if present
     if (trackOverrides[track.id]) {
       return {
         ...track,
@@ -539,7 +539,7 @@ function editTrackInfo(trackId) {
   const currentArtist = (!track.artist || track.artist === FALLBACK_ARTIST) ? "" : track.artist;
 
   const newTitle = prompt("Edit Track Title:", currentTitle);
-  if (newTitle === null) return; // Cancelled
+  if (newTitle === null) return;
 
   const newArtist = prompt("Edit Artist / Singer Name:", currentArtist);
   if (newArtist === null) return;
@@ -553,11 +553,8 @@ function editTrackInfo(trackId) {
   };
 
   localStorage.setItem("vibe_track_overrides", JSON.stringify(trackOverrides));
-
-  // Update in memory playlist
   rebuildPlaylist();
 
-  // If currently active, refresh UI immediately
   if (playlist[currentTrackIndex] && playlist[currentTrackIndex].id === trackId) {
     if (trackTitle) trackTitle.textContent = finalTitle;
     if (trackArtist) trackArtist.textContent = finalArtist;
@@ -896,7 +893,6 @@ function renderPlaylist() {
         <div class="item-artist">${displayArtist}</div>
       </div>
       <div class="item-actions">
-        <!-- Edit Title/Artist Button -->
         <button class="item-edit-btn" title="Edit Track Info">
           <i class="ri-edit-line"></i>
         </button>
@@ -920,7 +916,6 @@ function renderPlaylist() {
       closeDrawer();
     });
 
-    // Edit track details
     const editBtn = item.querySelector(".item-edit-btn");
     if (editBtn) {
       editBtn.addEventListener("click", (e) => {
@@ -929,7 +924,6 @@ function renderPlaylist() {
       });
     }
 
-    // Remove from active custom playlist
     if (currentTab === "custom" && activeCustomPlaylistName) {
       const removeBtn = item.querySelector(".item-playlist-remove-btn");
       if (removeBtn) {
@@ -939,7 +933,6 @@ function renderPlaylist() {
         });
       }
     } else {
-      // Add to custom playlist
       const addBtn = item.querySelector(".item-playlist-add-btn");
       if (addBtn) {
         addBtn.addEventListener("click", (e) => {
@@ -959,7 +952,6 @@ function renderPlaylist() {
       }
     }
 
-    // Heart action
     const itemHeart = item.querySelector(".item-heart-btn");
     itemHeart.addEventListener("click", (e) => {
       e.stopPropagation();
@@ -1095,8 +1087,8 @@ function setupBouncingBalls() {
   const winH = window.innerHeight;
 
   balls = [
-    { el: btnDrawer, x: 40, y: 120, vx: 2.1, vy: 1.7, size: 54, isPaused: false },
-    { el: btnUpload, x: Math.max(10, winW - 100), y: 170, vx: -2.3, vy: 2.0, size: 54, isPaused: false }
+    { el: btnDrawer, x: 40, y: 120, vx: 2.1, vy: 1.7, size: 52, isPaused: false },
+    { el: btnUpload, x: Math.max(10, winW - 100), y: 170, vx: -2.3, vy: 2.0, size: 52, isPaused: false }
   ].filter(b => b.el !== null);
 
   balls.forEach(ball => {
@@ -1212,6 +1204,30 @@ function setupListeners() {
   if (moodToggleBtn) moodToggleBtn.addEventListener("click", cycleMood);
   if (zenToggleBtn) zenToggleBtn.addEventListener("click", toggleZenMode);
 
+  // In-App Refresh & PWA Update Checker
+  if (appRefreshBtn) {
+    appRefreshBtn.addEventListener("click", () => {
+      if (refreshIcon) refreshIcon.classList.add("spin-anim");
+
+      // 1. Re-fetch live cloud songs
+      fetchSupabaseSongs();
+
+      // 2. Force service worker update check
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(registrations => {
+          for (let registration of registrations) {
+            registration.update();
+          }
+        });
+      }
+
+      setTimeout(() => {
+        if (refreshIcon) refreshIcon.classList.remove("spin-anim");
+        window.location.reload();
+      }, 500);
+    });
+  }
+
   // Custom Playlists Buttons
   if (createPlaylistBtn) {
     createPlaylistBtn.addEventListener("click", createNewPlaylist);
@@ -1224,7 +1240,6 @@ function setupListeners() {
     });
   });
 
-  // Custom Wallpaper Upload Listener
   if (customBgInput) {
     customBgInput.addEventListener("change", handleCustomBgUpload);
   }

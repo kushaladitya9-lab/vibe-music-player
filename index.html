@@ -7,7 +7,7 @@
   <!-- Primary SEO Meta Tags -->
   <title>Vibe Music Player - Aesthetic Indian Lo-Fi & Retro Player</title>
   <meta name="title" content="Vibe Music Player - Aesthetic Indian Lo-Fi & Retro Player">
-  <meta name="description" content="Aesthetic Indian Tapri & Lo-Fi retro music player with dynamic moods, rain sound synthesizer, zen mode, and cloud synced tracks.">
+  <meta name="description" content="Aesthetic Indian Tapri & Lo-Fi retro music player with dynamic moods, rain sound synthesizer, zen mode, custom wallpapers, and cloud synced tracks.">
   <meta name="keywords" content="vibe music player, lofi music player, indian aesthetic player, retro bollywood lofi, aditya kushal">
   <meta name="author" content="Aditya Kushal">
   <meta name="robots" content="index, follow">
@@ -135,21 +135,27 @@
     <div class="drawer-header">
       <div>
         <h3>Tracks & Settings</h3>
-        <p>Manage Playlists, Backgrounds & Sync</p>
+        <p>Edit Info, Wallpapers & Sync</p>
       </div>
       <button class="close-drawer-btn" id="close-drawer-btn">
         <i class="ri-close-line"></i>
       </button>
     </div>
 
-    <!-- 1. Background Image Switcher -->
+    <!-- 1. Background Image Switcher (Includes Custom Wallpaper Upload) -->
     <div class="custom-picker-section">
       <span class="picker-title"><i class="ri-image-2-line"></i> Background Image:</span>
       <div class="picker-grid">
-        <button class="grid-btn bg-btn active" data-bg="0">Background 1</button>
-        <button class="grid-btn bg-btn" data-bg="1">Background 2</button>
-        <button class="grid-btn bg-btn" data-bg="2">Background 3</button>
-        <button class="grid-btn bg-btn" data-bg="3">Background 4</button>
+        <button class="grid-btn bg-btn active" data-bg="0">Wallpaper 1</button>
+        <button class="grid-btn bg-btn" data-bg="1">Wallpaper 2</button>
+        <button class="grid-btn bg-btn" data-bg="2">Wallpaper 3</button>
+        <button class="grid-btn bg-btn" data-bg="3">Wallpaper 4</button>
+        
+        <!-- Custom Background Button for any format (JPG, PNG, WEBP, GIF, AVIF, etc.) -->
+        <label for="custom-bg-input" class="grid-btn bg-btn" id="custom-bg-label" style="grid-column: span 2; cursor: pointer;">
+          <i class="ri-image-add-line"></i> <span id="custom-bg-text">+ Custom Wallpaper (JPG, PNG, WEBP...)</span>
+        </label>
+        <input type="file" id="custom-bg-input" accept="image/*" hidden>
       </div>
     </div>
 

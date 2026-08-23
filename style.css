@@ -481,7 +481,7 @@ body.zen-mode .draggable-volume-box {
   transform: translateX(-50%) translateY(105%);
   width: 100%;
   max-width: 480px;
-  height: 82dvh;
+  height: 84dvh;
   background: var(--drawer-bg);
   backdrop-filter: blur(30px);
   -webkit-backdrop-filter: blur(30px);
@@ -806,7 +806,7 @@ body.zen-mode .draggable-volume-box {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  max-width: 75%;
+  max-width: 65%;
 }
 
 .item-title {
@@ -829,7 +829,22 @@ body.zen-mode .draggable-volume-box {
 .item-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+}
+
+.item-edit-btn {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 0.95rem;
+  cursor: pointer;
+  padding: 4px;
+  transition: color 0.2s, transform 0.2s;
+}
+
+.item-edit-btn:hover {
+  color: var(--accent-gold);
+  transform: scale(1.15);
 }
 
 .item-heart-btn {

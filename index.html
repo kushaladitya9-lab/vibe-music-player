@@ -8,22 +8,16 @@
   <title>Vibe Music Player - Aesthetic Indian Lo-Fi & Retro Player</title>
   <meta name="title" content="Vibe Music Player - Aesthetic Indian Lo-Fi & Retro Player">
   <meta name="description" content="Aesthetic Indian Tapri & Lo-Fi retro music player with dynamic moods, rain sound synthesizer, zen mode, and cloud synced tracks.">
-  <meta name="keywords" content="vibe music player, lofi music player, indian aesthetic player, radhe chai wala, retro bollywood lofi, aditya kushal">
+  <meta name="keywords" content="vibe music player, lofi music player, indian aesthetic player, retro bollywood lofi, aditya kushal">
   <meta name="author" content="Aditya Kushal">
   <meta name="robots" content="index, follow">
 
-  <!-- Open Graph / Facebook / WhatsApp Share Preview -->
+  <!-- Open Graph / WhatsApp Share Preview -->
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://github.com/">
   <meta property="og:title" content="Vibe Music Player - Retro Indian Lo-Fi">
   <meta property="og:description" content="Listen to curated retro vibes, dynamic rain synthesizer, and switch atmospheric themes.">
-  <meta property="og:image" content="bg1-mobile.png">
-
-  <!-- Twitter Meta Tags -->
-  <meta property="twitter:card" content="summary_large_image">
-  <meta property="twitter:title" content="Vibe Music Player">
-  <meta property="twitter:description" content="Aesthetic Indian Lo-Fi & Retro Music Experience.">
-  <meta property="twitter:image" content="bg1-mobile.png">
+  <meta property="og:image" content="app-icon.png">
 
   <!-- PWA & Mobile Web App Meta -->
   <link rel="manifest" href="manifest.json">
@@ -32,7 +26,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Vibe Player">
-  <link rel="apple-touch-icon" href="bg1-mobile.png">
+  <link rel="apple-touch-icon" href="app-icon.png">
 
   <link rel="stylesheet" href="style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -141,7 +135,7 @@
     <div class="drawer-header">
       <div>
         <h3>Tracks & Settings</h3>
-        <p>42 Tracks • Backgrounds & Sync</p>
+        <p>Manage Playlists, Backgrounds & Sync</p>
       </div>
       <button class="close-drawer-btn" id="close-drawer-btn">
         <i class="ri-close-line"></i>
@@ -180,26 +174,35 @@
       </div>
     </div>
 
-    <!-- 4. Instant Search Bar -->
+    <!-- 4. Custom Playlists Management Section -->
+    <div class="custom-picker-section">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <span class="picker-title"><i class="ri-folder-add-line"></i> Custom Playlists:</span>
+        <button id="create-playlist-btn" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: var(--accent-gold); padding: 3px 10px; border-radius: 6px; font-size: 0.72rem; font-weight: 700; cursor: pointer;">+ New Playlist</button>
+      </div>
+      <div id="custom-playlists-container" style="display: flex; gap: 6px; overflow-x: auto; padding: 2px 0;"></div>
+    </div>
+
+    <!-- 5. Instant Search Bar -->
     <div class="search-box-container">
       <i class="ri-search-2-line search-icon"></i>
       <input type="text" id="playlist-search-input" placeholder="Search track name...">
     </div>
 
-    <!-- 5. Playlist Filter Tabs -->
+    <!-- 6. Playlist Filter Tabs -->
     <div class="playlist-tabs">
-      <button class="tab-btn active" id="tab-all-btn">All Tracks (42)</button>
+      <button class="tab-btn active" id="tab-all-btn">All Tracks</button>
       <button class="tab-btn" id="tab-liked-btn"><i class="ri-heart-fill"></i> Liked (<span id="liked-count">0</span>)</button>
     </div>
 
-    <!-- 6. Dual Upload Section (Main Playlist & Local Upload) -->
+    <!-- 7. Dual Upload Section (Main Playlist & Local Upload) -->
     <div class="dual-upload-container">
       <!-- Main Playlist Cloud Upload (PIN Protected) -->
       <label for="main-audio-input" class="upload-action-card global" id="btn-upload-main">
         <i class="ri-cloud-upload-fill"></i>
         <div class="upload-text">
-          <strong>Upload to Main Playlist</strong>
-          <small>Syncs for everyone • Requires PIN</small>
+          <strong>Upload to Main</strong>
+          <small>Syncs for everyone • PIN</small>
         </div>
       </label>
       <input type="file" id="main-audio-input" accept="audio/*" hidden>
@@ -208,14 +211,14 @@
       <label for="drawer-audio-file-input" class="upload-action-card local">
         <i class="ri-hard-drive-2-fill"></i>
         <div class="upload-text">
-          <strong>Upload Local Song</strong>
-          <small>Only visible on this device</small>
+          <strong>Upload Local</strong>
+          <small>Only on this device</small>
         </div>
       </label>
       <input type="file" id="drawer-audio-file-input" accept="audio/*" multiple hidden>
     </div>
 
-    <!-- 7. Scrollable Songs List -->
+    <!-- 8. Scrollable Songs List -->
     <div class="playlist-scroll-list" id="playlist-scroll-list"></div>
   </aside>
 

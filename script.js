@@ -86,6 +86,7 @@ let isShuffle = false;
 let isRepeat = false;
 let isZenMode = false;
 let isFading = false;
+let wakeLock = null;
 
 let currentTab = "all"; 
 let activeCustomPlaylistName = null;
@@ -407,14 +408,11 @@ function cycleMood() {
 // ========================================================
 // DRAGGABLE VOLUME BAR
 // ========================================================
-let volCurrentX = 0;
-let volCurrentY = 0;
-
 function setupDraggableVolume() {
   if (!draggableVolume) return;
 
-  volCurrentX = Math.max(20, window.innerWidth - 210);
-  volCurrentY = Math.max(20, window.innerHeight - 80);
+  let volCurrentX = Math.max(20, window.innerWidth - 210);
+  let volCurrentY = Math.max(20, window.innerHeight - 80);
   
   let startX = 0, startY = 0;
   let isDragging = false;
@@ -504,8 +502,29 @@ function initRainAudio() {
 }
 
 // ========================================================
-// TRACK LOADER, EDIT INFO & CROSSFADE
+// TRACK LOADER, WAKE-LOCK & BACKGROUND FIX
 // ========================================================
+async function requestWakeLock() {
+  if ('wakeLock' in navigator) {
+    try {
+      if (!wakeLock) {
+        wakeLock = await navigator.wakeLock.request('screen');
+        wakeLock.addEventListener('release', () => {
+          wakeLock = null;
+        });
+      }
+    } catch (err) {
+      // Ignored silently
+    }
+  }
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && isPlaying) {
+    requestWakeLock();
+  }
+});
+
 function loadTrack(index) {
   if (playlist.length === 0) return;
 
@@ -524,13 +543,15 @@ function loadTrack(index) {
 
   audio.src = track.src;
   audio.load();
+  audio.currentTime = 0;
 
   updateHeartButton();
   updateMediaSessionMetadata(track);
 }
 
 function triggerFadeTransition(actionCallback) {
-  if (!audio || !isPlaying || isFading) {
+  // If app is running in background or screen is off, execute directly to avoid stalled intervals
+  if (!audio || !isPlaying || isFading || document.visibilityState === 'hidden') {
     actionCallback();
     return;
   }
@@ -597,10 +618,15 @@ function playTrack() {
   if (!audio) return;
   if (audioCtx && audioCtx.state === "suspended") audioCtx.resume();
 
+  requestWakeLock();
+
   audio.play().then(() => {
     isPlaying = true;
     if (playIcon) playIcon.className = "ri-pause-fill";
     updateMediaSessionMetadata(playlist[currentTrackIndex]);
+    if ("mediaSession" in navigator) {
+      navigator.mediaSession.playbackState = "playing";
+    }
   }).catch((err) => {
     console.warn("Playback interaction needed:", err);
   });
@@ -611,6 +637,9 @@ function pauseTrack() {
   audio.pause();
   isPlaying = false;
   if (playIcon) playIcon.className = "ri-play-fill";
+  if ("mediaSession" in navigator) {
+    navigator.mediaSession.playbackState = "paused";
+  }
 }
 
 function togglePlay() {
@@ -1063,8 +1092,8 @@ function setupMediaSession() {
   if ("mediaSession" in navigator) {
     navigator.mediaSession.setActionHandler("play", playTrack);
     navigator.mediaSession.setActionHandler("pause", pauseTrack);
-    navigator.mediaSession.setActionHandler("previoustrack", () => triggerFadeTransition(prevTrack));
-    navigator.mediaSession.setActionHandler("nexttrack", () => triggerFadeTransition(nextTrack));
+    navigator.mediaSession.setActionHandler("previoustrack", prevTrack);
+    navigator.mediaSession.setActionHandler("nexttrack", nextTrack);
   }
 }
 
@@ -1254,7 +1283,6 @@ function updatePhysics() {
       const cx = ball.x + r;
       const cy = ball.y + r;
 
-      // Find closest point on sound bar bounding box to ball center
       const clampedX = Math.max(vLeft, Math.min(cx, vRight));
       const clampedY = Math.max(vTop, Math.min(cy, vBottom));
 
@@ -1284,11 +1312,9 @@ function updatePhysics() {
           else { nx = 0; ny = 1; overlap = r + dBottom; }
         }
 
-        // Positional separation to prevent overlapping completely
         ball.x += nx * (overlap + 2.5);
         ball.y += ny * (overlap + 2.5);
 
-        // Velocity reflection
         const dot = ball.vx * nx + ball.vy * ny;
         if (dot < 0) {
           ball.vx = ball.vx - 2 * dot * nx;
@@ -1301,7 +1327,7 @@ function updatePhysics() {
     });
   }
 
-  // 4. Ball Speed Safety Normalizer (Never freezes or gets stuck)
+  // 4. Ball Speed Safety Normalizer
   balls.forEach(ball => {
     const spd = Math.sqrt(ball.vx * ball.vx + ball.vy * ball.vy);
     if (spd < 1.6) {
@@ -1369,12 +1395,23 @@ function setupListeners() {
 
   if (audio) {
     audio.addEventListener("timeupdate", updateProgress);
+    
+    // Background Playback Fix: Direct transition without stalling intervals
     audio.addEventListener("ended", () => {
-      if (isRepeat) {
-        audio.currentTime = 0;
-        playTrack();
-      } else {
-        triggerFadeTransition(nextTrack);
+      setTimeout(() => {
+        if (isRepeat) {
+          audio.currentTime = 0;
+          playTrack();
+        } else {
+          nextTrack();
+        }
+      }, 150);
+    });
+
+    audio.addEventListener("pause", () => {
+      if (audio.currentTime !== audio.duration && !isFading) {
+        isPlaying = false;
+        if (playIcon) playIcon.className = "ri-play-fill";
       }
     });
   }

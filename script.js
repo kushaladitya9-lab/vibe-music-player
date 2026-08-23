@@ -101,9 +101,6 @@ let audioCtx = null;
 let rainGainNode = null;
 let isWebAudioInit = false;
 
-// Draggable Volume Box Global Position State for Collision
-let volBoxPos = { x: 0, y: 0, w: 180, h: 42 };
-
 // DOM References
 let audio, trackTitle, trackArtist, playBtn, playIcon, prevBtn, nextBtn;
 let shuffleBtn, repeatBtn, seekContainer, seekProgress, seekThumb;
@@ -408,31 +405,27 @@ function cycleMood() {
 }
 
 // ========================================================
-// DRAGGABLE VOLUME BAR WITH REAL-TIME COORDINATE TRACKING
+// DRAGGABLE VOLUME BAR
 // ========================================================
+let volCurrentX = 0;
+let volCurrentY = 0;
+
 function setupDraggableVolume() {
   if (!draggableVolume) return;
 
-  const defaultX = Math.max(20, window.innerWidth - 210);
-  const defaultY = Math.max(20, window.innerHeight - 80);
+  volCurrentX = Math.max(20, window.innerWidth - 210);
+  volCurrentY = Math.max(20, window.innerHeight - 80);
   
-  let currentX = defaultX;
-  let currentY = defaultY;
   let startX = 0, startY = 0;
   let isDragging = false;
 
-  volBoxPos.x = currentX;
-  volBoxPos.y = currentY;
-  volBoxPos.w = draggableVolume.offsetWidth || 180;
-  volBoxPos.h = draggableVolume.offsetHeight || 42;
-
-  draggableVolume.style.transform = `translate3d(${currentX}px, ${currentY}px, 0)`;
+  draggableVolume.style.transform = `translate3d(${volCurrentX}px, ${volCurrentY}px, 0)`;
 
   function onPointerDown(e) {
     if (e.target === volumeSlider) return;
     isDragging = true;
-    startX = e.clientX - currentX;
-    startY = e.clientY - currentY;
+    startX = e.clientX - volCurrentX;
+    startY = e.clientY - volCurrentY;
     draggableVolume.setPointerCapture(e.pointerId);
   }
 
@@ -447,15 +440,9 @@ function setupDraggableVolume() {
     newX = Math.max(10, Math.min(newX, maxX));
     newY = Math.max(10, Math.min(newY, maxY));
 
-    currentX = newX;
-    currentY = newY;
-
-    volBoxPos.x = currentX;
-    volBoxPos.y = currentY;
-    volBoxPos.w = draggableVolume.offsetWidth || 180;
-    volBoxPos.h = draggableVolume.offsetHeight || 42;
-
-    draggableVolume.style.transform = `translate3d(${currentX}px, ${currentY}px, 0)`;
+    volCurrentX = newX;
+    volCurrentY = newY;
+    draggableVolume.style.transform = `translate3d(${volCurrentX}px, ${volCurrentY}px, 0)`;
   }
 
   function onPointerUp(e) {
@@ -467,11 +454,6 @@ function setupDraggableVolume() {
   draggableVolume.addEventListener("pointerdown", onPointerDown);
   window.addEventListener("pointermove", onPointerMove);
   window.addEventListener("pointerup", onPointerUp);
-
-  window.addEventListener("resize", () => {
-    volBoxPos.w = draggableVolume.offsetWidth || 180;
-    volBoxPos.h = draggableVolume.offsetHeight || 42;
-  });
 }
 
 // ========================================================
@@ -1057,7 +1039,7 @@ function updateTrackCount() {
   }
 }
 
-// Drawer Open / Close Controls
+// Drawer Controls
 function openPlaylistDrawer() {
   closeAllDrawers();
   if (playlistDrawer) playlistDrawer.classList.add("active");
@@ -1162,7 +1144,7 @@ function initWeatherCanvas() {
 }
 
 // ========================================================
-// 3 BOUNCING BALLS + VOLUME BAR ELASTIC COLLISION ENGINE
+// 3 BOUNCING BALLS + SOUND BAR REAL-TIME COLLISION ENGINE
 // ========================================================
 function setupBouncingBalls() {
   const btnDrawer = document.getElementById("open-drawer-btn");
@@ -1173,9 +1155,9 @@ function setupBouncingBalls() {
   const winH = window.innerHeight;
 
   balls = [
-    { el: btnDrawer, x: 30, y: 110, vx: 2.1, vy: 1.6, size: 52, isPaused: false },
-    { el: btnTheme, x: Math.max(10, winW - 90), y: 130, vx: -1.8, vy: 2.2, size: 52, isPaused: false },
-    { el: btnUpload, x: 50, y: Math.max(10, winH - 180), vx: 2.3, vy: -1.7, size: 52, isPaused: false }
+    { el: btnDrawer, x: 30, y: 110, vx: 2.2, vy: 1.8, size: 52, isPaused: false },
+    { el: btnTheme, x: Math.max(10, winW - 90), y: 130, vx: -2.0, vy: 2.2, size: 52, isPaused: false },
+    { el: btnUpload, x: 50, y: Math.max(10, winH - 180), vx: 2.4, vy: -1.9, size: 52, isPaused: false }
   ].filter(b => b.el !== null);
 
   balls.forEach(ball => {
@@ -1194,7 +1176,7 @@ function updatePhysics() {
   const winW = window.innerWidth;
   const winH = window.innerHeight;
 
-  // 1. Position Update & Window Edge Bouncing
+  // 1. Position Step & Screen Edge Bounces
   balls.forEach(ball => {
     if (!ball.isPaused) {
       ball.x += ball.vx;
@@ -1202,18 +1184,18 @@ function updatePhysics() {
 
       if (ball.x <= 0) {
         ball.x = 0;
-        ball.vx *= -1;
+        ball.vx = Math.abs(ball.vx);
       } else if (ball.x + ball.size >= winW) {
         ball.x = winW - ball.size;
-        ball.vx *= -1;
+        ball.vx = -Math.abs(ball.vx);
       }
 
       if (ball.y <= 0) {
         ball.y = 0;
-        ball.vy *= -1;
+        ball.vy = Math.abs(ball.vy);
       } else if (ball.y + ball.size >= winH) {
         ball.y = winH - ball.size;
-        ball.vy *= -1;
+        ball.vy = -Math.abs(ball.vy);
       }
     }
   });
@@ -1249,7 +1231,7 @@ function updatePhysics() {
           b2.vy += p * ny;
         }
 
-        const overlap = (minDist - dist) / 2;
+        const overlap = (minDist - dist) / 2 + 1.2;
         b1.x -= overlap * nx;
         b1.y -= overlap * ny;
         b2.x += overlap * nx;
@@ -1258,24 +1240,26 @@ function updatePhysics() {
     }
   }
 
-  // 3. Ball-to-Volume-Bar Collision (Circle vs AABB Elastic Bounce)
+  // 3. Live Sound Bar AABB vs Ball Circle Collision Engine
   if (draggableVolume) {
-    const vLeft = volBoxPos.x;
-    const vRight = volBoxPos.x + volBoxPos.w;
-    const vTop = volBoxPos.y;
-    const vBottom = volBoxPos.y + volBoxPos.h;
+    const vRect = draggableVolume.getBoundingClientRect();
+    const margin = 4;
+    const vLeft = vRect.left - margin;
+    const vRight = vRect.right + margin;
+    const vTop = vRect.top - margin;
+    const vBottom = vRect.bottom + margin;
 
     balls.forEach(ball => {
       const r = ball.size / 2;
       const cx = ball.x + r;
       const cy = ball.y + r;
 
-      // Find closest point on rectangular volume bar to circle center
-      const closestX = Math.max(vLeft, Math.min(cx, vRight));
-      const closestY = Math.max(vTop, Math.min(cy, vBottom));
+      // Find closest point on sound bar bounding box to ball center
+      const clampedX = Math.max(vLeft, Math.min(cx, vRight));
+      const clampedY = Math.max(vTop, Math.min(cy, vBottom));
 
-      const dx = cx - closestX;
-      const dy = cy - closestY;
+      const dx = cx - clampedX;
+      const dy = cy - clampedY;
       const distSq = dx * dx + dy * dy;
 
       if (distSq < r * r) {
@@ -1288,34 +1272,48 @@ function updatePhysics() {
           ny = dy / dist;
           overlap = r - dist;
         } else {
-          // If circle center is deeply inside the box, push towards nearest edge
-          const toLeft = cx - vLeft;
-          const toRight = vRight - cx;
-          const toTop = cy - vTop;
-          const toBottom = vBottom - cy;
-          const minEdge = Math.min(toLeft, toRight, toTop, toBottom);
+          const dLeft = Math.abs(cx - vLeft);
+          const dRight = Math.abs(vRight - cx);
+          const dTop = Math.abs(cy - vTop);
+          const dBottom = Math.abs(vBottom - cy);
+          const minD = Math.min(dLeft, dRight, dTop, dBottom);
 
-          if (minEdge === toLeft) { nx = -1; ny = 0; overlap = r + toLeft; }
-          else if (minEdge === toRight) { nx = 1; ny = 0; overlap = r + toRight; }
-          else if (minEdge === toTop) { nx = 0; ny = -1; overlap = r + toTop; }
-          else { nx = 0; ny = 1; overlap = r + toBottom; }
+          if (minD === dLeft) { nx = -1; ny = 0; overlap = r + dLeft; }
+          else if (minD === dRight) { nx = 1; ny = 0; overlap = r + dRight; }
+          else if (minD === dTop) { nx = 0; ny = -1; overlap = r + dTop; }
+          else { nx = 0; ny = 1; overlap = r + dBottom; }
         }
 
-        // Elastic velocity bounce against the stationary/dragged bar
+        // Positional separation to prevent overlapping completely
+        ball.x += nx * (overlap + 2.5);
+        ball.y += ny * (overlap + 2.5);
+
+        // Velocity reflection
         const dot = ball.vx * nx + ball.vy * ny;
         if (dot < 0) {
           ball.vx = ball.vx - 2 * dot * nx;
           ball.vy = ball.vy - 2 * dot * ny;
+        } else {
+          ball.vx += nx * 1.5;
+          ball.vy += ny * 1.5;
         }
-
-        // Positional separation to prevent sticking
-        ball.x += nx * overlap;
-        ball.y += ny * overlap;
       }
     });
   }
 
-  // 4. Render Final Ball Transforms
+  // 4. Ball Speed Safety Normalizer (Never freezes or gets stuck)
+  balls.forEach(ball => {
+    const spd = Math.sqrt(ball.vx * ball.vx + ball.vy * ball.vy);
+    if (spd < 1.6) {
+      ball.vx = (ball.vx / (spd || 1)) * 2.4;
+      ball.vy = (ball.vy / (spd || 1)) * 2.4;
+    } else if (spd > 4.5) {
+      ball.vx = (ball.vx / spd) * 3.6;
+      ball.vy = (ball.vy / spd) * 3.6;
+    }
+  });
+
+  // 5. Render Final Transforms
   balls.forEach(ball => {
     ball.el.style.transform = `translate3d(${ball.x}px, ${ball.y}px, 0)`;
   });

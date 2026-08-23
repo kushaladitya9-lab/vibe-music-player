@@ -87,7 +87,7 @@ let isShuffle = false;
 let isRepeat = false;
 let isZenMode = false;
 
-// Filter/Tab State ("all", "liked", or playlist name string)
+// Filter/Tab State ("all", "liked", or "custom")
 let currentTab = "all"; 
 let activeCustomPlaylistName = null;
 
@@ -445,7 +445,7 @@ function initRainAudio() {
 }
 
 // ========================================================
-// TRACK LOADER & CONTROLS (WITH BACKGROUND SCREEN-OFF FIX)
+// TRACK LOADER & CONTROLS
 // ========================================================
 function loadTrack(index) {
   if (playlist.length === 0) return;
@@ -467,7 +467,6 @@ function loadTrack(index) {
   audio.load();
 
   updateHeartButton();
-  updateActiveListItem();
   updateMediaSessionMetadata(track);
 }
 
@@ -501,15 +500,32 @@ function togglePlay() {
 }
 
 function nextTrack() {
+  // If playing inside a custom playlist or liked view
+  let activePool = playlist;
+  if (currentTab === "liked") {
+    activePool = playlist.filter(t => likedTrackIds.includes(t.id));
+  } else if (currentTab === "custom" && activeCustomPlaylistName) {
+    const allowedIds = customPlaylists[activeCustomPlaylistName] || [];
+    activePool = playlist.filter(t => allowedIds.includes(t.id));
+  }
+
+  if (activePool.length === 0) activePool = playlist;
+
   if (isShuffle) {
     let randomIndex;
     do {
-      randomIndex = Math.floor(Math.random() * playlist.length);
-    } while (randomIndex === currentTrackIndex && playlist.length > 1);
-    currentTrackIndex = randomIndex;
+      randomIndex = Math.floor(Math.random() * activePool.length);
+    } while (randomIndex === currentTrackIndex && activePool.length > 1);
+    
+    const selectedTrack = activePool[randomIndex];
+    currentTrackIndex = playlist.findIndex(t => t.id === selectedTrack.id);
   } else {
-    currentTrackIndex = (currentTrackIndex + 1) % playlist.length;
+    const currentInPoolIdx = activePool.findIndex(t => t.id === playlist[currentTrackIndex].id);
+    const nextInPoolIdx = (currentInPoolIdx + 1) % activePool.length;
+    const nextTrackObj = activePool[nextInPoolIdx];
+    currentTrackIndex = playlist.findIndex(t => t.id === nextTrackObj.id);
   }
+
   loadTrack(currentTrackIndex);
   playTrack();
 }
@@ -519,7 +535,22 @@ function prevTrack() {
     audio.currentTime = 0;
     return;
   }
-  currentTrackIndex = (currentTrackIndex - 1 + playlist.length) % playlist.length;
+
+  let activePool = playlist;
+  if (currentTab === "liked") {
+    activePool = playlist.filter(t => likedTrackIds.includes(t.id));
+  } else if (currentTab === "custom" && activeCustomPlaylistName) {
+    const allowedIds = customPlaylists[activeCustomPlaylistName] || [];
+    activePool = playlist.filter(t => allowedIds.includes(t.id));
+  }
+
+  if (activePool.length === 0) activePool = playlist;
+
+  const currentInPoolIdx = activePool.findIndex(t => t.id === playlist[currentTrackIndex].id);
+  const prevInPoolIdx = (currentInPoolIdx - 1 + activePool.length) % activePool.length;
+  const prevTrackObj = activePool[prevInPoolIdx];
+  currentTrackIndex = playlist.findIndex(t => t.id === prevTrackObj.id);
+
   loadTrack(currentTrackIndex);
   playTrack();
 }
@@ -609,7 +640,7 @@ function updateLikedCount() {
 }
 
 // ========================================================
-// CUSTOM PLAYLISTS SYSTEM
+// CUSTOM PLAYLISTS SYSTEM (ADD, DELETE, REMOVE SONGS)
 // ========================================================
 function renderCustomPlaylists() {
   if (!customPlaylistsContainer) return;
@@ -617,11 +648,21 @@ function renderCustomPlaylists() {
 
   const playlistNames = Object.keys(customPlaylists);
 
-  // Default "All" / "Liked" chips or reset chip if custom playlist is active
   playlistNames.forEach(name => {
+    const wrapper = document.createElement("div");
+    wrapper.style.cssText = `
+      display: inline-flex;
+      align-items: center;
+      background: ${activeCustomPlaylistName === name ? "rgba(255, 222, 89, 0.18)" : "rgba(255,255,255,0.06)"};
+      border: 1px solid ${activeCustomPlaylistName === name ? "var(--accent-gold)" : "rgba(255,255,255,0.12)"};
+      border-radius: 8px;
+      overflow: hidden;
+      margin-right: 5px;
+      flex-shrink: 0;
+    `;
+
     const chip = document.createElement("button");
-    chip.className = `grid-btn ${activeCustomPlaylistName === name ? "active" : ""}`;
-    chip.style.cssText = "padding: 5px 10px; font-size: 0.72rem; white-space: nowrap; border-radius: 8px;";
+    chip.style.cssText = "padding: 5px 8px; font-size: 0.72rem; white-space: nowrap; border: none; background: transparent; color: #fff; cursor: pointer; display: flex; align-items: center; gap: 4px; font-weight: 600;";
     chip.innerHTML = `<i class="ri-play-list-line"></i> ${name} (${customPlaylists[name].length})`;
 
     chip.addEventListener("click", () => {
@@ -633,7 +674,23 @@ function renderCustomPlaylists() {
       renderPlaylist();
     });
 
-    customPlaylistsContainer.appendChild(chip);
+    // Delete Playlist Button (X)
+    const delBtn = document.createElement("button");
+    delBtn.title = `Delete playlist "${name}"`;
+    delBtn.style.cssText = "background: transparent; border: none; color: rgba(255,255,255,0.45); padding: 5px 6px; cursor: pointer; font-size: 0.82rem; display: flex; align-items: center; transition: color 0.2s;";
+    delBtn.innerHTML = `<i class="ri-close-line"></i>`;
+
+    delBtn.addEventListener("mouseenter", () => { delBtn.style.color = "#ff4757"; });
+    delBtn.addEventListener("mouseleave", () => { delBtn.style.color = "rgba(255,255,255,0.45)"; });
+
+    delBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      deleteCustomPlaylist(name);
+    });
+
+    wrapper.appendChild(chip);
+    wrapper.appendChild(delBtn);
+    customPlaylistsContainer.appendChild(wrapper);
   });
 }
 
@@ -651,6 +708,20 @@ function createNewPlaylist() {
   localStorage.setItem("vibe_custom_playlists", JSON.stringify(customPlaylists));
   renderCustomPlaylists();
   alert(`Playlist "${cleanName}" created successfully! Now you can add songs to it.`);
+}
+
+function deleteCustomPlaylist(name) {
+  if (confirm(`Are you sure you want to delete the entire playlist "${name}"?`)) {
+    delete customPlaylists[name];
+    localStorage.setItem("vibe_custom_playlists", JSON.stringify(customPlaylists));
+    if (activeCustomPlaylistName === name) {
+      activeCustomPlaylistName = null;
+      currentTab = "all";
+      if (tabAllBtn) tabAllBtn.classList.add("active");
+    }
+    renderCustomPlaylists();
+    renderPlaylist();
+  }
 }
 
 function addSongToCustomPlaylist(trackId, playlistName) {
@@ -689,6 +760,14 @@ function renderPlaylist() {
     targetTracks = playlist.filter(t => allowedIds.includes(t.id));
   }
 
+  if (targetTracks.length === 0) {
+    const emptyMsg = document.createElement("p");
+    emptyMsg.style.cssText = "text-align: center; color: rgba(255,255,255,0.4); font-size: 0.85rem; padding: 25px 0;";
+    emptyMsg.textContent = currentTab === "custom" ? "No songs in this playlist yet. Add some from 'All Tracks'!" : "No songs found.";
+    playlistScrollList.appendChild(emptyMsg);
+    return;
+  }
+
   targetTracks.forEach((track) => {
     const originalIndex = playlist.findIndex(t => t.id === track.id);
     if (originalIndex === -1) return;
@@ -700,6 +779,22 @@ function renderPlaylist() {
     const isLiked = likedTrackIds.includes(track.id);
     const displayArtist = (!track.artist || track.artist.trim() === "") ? FALLBACK_ARTIST : track.artist;
 
+    // Custom Action Button: Minus/Remove if in custom playlist, Plus/Add if in general list
+    let actionBtnHtml = '';
+    if (currentTab === "custom" && activeCustomPlaylistName) {
+      actionBtnHtml = `
+        <button class="item-playlist-remove-btn" title="Remove from this playlist" style="background:none; border:none; color:rgba(255,71,87,0.85); cursor:pointer; font-size:1.1rem; padding:4px;">
+          <i class="ri-indeterminate-circle-line"></i>
+        </button>
+      `;
+    } else {
+      actionBtnHtml = `
+        <button class="item-playlist-add-btn" title="Add to Custom Playlist" style="background:none; border:none; color:rgba(255,255,255,0.6); cursor:pointer; font-size:1rem; padding:4px;">
+          <i class="ri-add-box-line"></i>
+        </button>
+      `;
+    }
+
     const item = document.createElement("div");
     item.className = `playlist-item ${originalIndex === currentTrackIndex ? "active" : ""}`;
     item.innerHTML = `
@@ -708,9 +803,7 @@ function renderPlaylist() {
         <div class="item-artist">${displayArtist}</div>
       </div>
       <div class="item-actions">
-        <button class="item-playlist-add-btn" title="Add to Custom Playlist" style="background:none; border:none; color:rgba(255,255,255,0.6); cursor:pointer; font-size:1rem; padding:4px;">
-          <i class="ri-add-box-line"></i>
-        </button>
+        ${actionBtnHtml}
         <button class="item-heart-btn ${isLiked ? "liked" : ""}">
           <i class="${isLiked ? "ri-heart-fill" : "ri-heart-line"}"></i>
         </button>
@@ -719,28 +812,41 @@ function renderPlaylist() {
     `;
 
     item.addEventListener("click", (e) => {
-      if (e.target.closest(".item-heart-btn") || e.target.closest(".item-playlist-add-btn")) return;
+      if (e.target.closest(".item-heart-btn") || e.target.closest(".item-playlist-add-btn") || e.target.closest(".item-playlist-remove-btn")) return;
       loadTrack(originalIndex);
       playTrack();
       closeDrawer();
     });
 
-    // Add to playlist action
-    const addBtn = item.querySelector(".item-playlist-add-btn");
-    addBtn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      const pNames = Object.keys(customPlaylists);
-      if (pNames.length === 0) {
-        alert("Please create a custom playlist first using the '+ New Playlist' button above!");
-        return;
+    // Remove from active custom playlist
+    if (currentTab === "custom" && activeCustomPlaylistName) {
+      const removeBtn = item.querySelector(".item-playlist-remove-btn");
+      if (removeBtn) {
+        removeBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          removeSongFromCustomPlaylist(track.id, activeCustomPlaylistName);
+        });
       }
-      const choice = prompt(`Select playlist to add "${track.title}":\nAvailable:\n- ${pNames.join("\n- ")}`);
-      if (choice && customPlaylists[choice.trim()]) {
-        addSongToCustomPlaylist(track.id, choice.trim());
-      } else if (choice) {
-        alert("Playlist not found!");
+    } else {
+      // Add to custom playlist action
+      const addBtn = item.querySelector(".item-playlist-add-btn");
+      if (addBtn) {
+        addBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const pNames = Object.keys(customPlaylists);
+          if (pNames.length === 0) {
+            alert("Please create a custom playlist first using the '+ New Playlist' button above!");
+            return;
+          }
+          const choice = prompt(`Select playlist to add "${track.title}":\nAvailable:\n- ${pNames.join("\n- ")}`);
+          if (choice && customPlaylists[choice.trim()]) {
+            addSongToCustomPlaylist(track.id, choice.trim());
+          } else if (choice) {
+            alert("Playlist not found!");
+          }
+        });
       }
-    });
+    }
 
     // Heart action
     const itemHeart = item.querySelector(".item-heart-btn");
@@ -762,15 +868,6 @@ function renderPlaylist() {
   });
 }
 
-function updateActiveListItem() {
-  if (!playlistScrollList) return;
-  const items = playlistScrollList.querySelectorAll(".playlist-item");
-  // Highlight active track
-  playlist.forEach((track, index) => {
-    // Note: items mapped might differ if filtered, so let's refresh list or handle active class
-  });
-}
-
 function updateTrackCount() {
   if (trackCountBadge) {
     trackCountBadge.textContent = playlist.length;
@@ -787,9 +884,7 @@ function closeDrawer() {
   if (drawerBackdrop) drawerBackdrop.classList.remove("active");
 }
 
-// ========================================================
-// MEDIA SESSION & BACKGROUND PLAYBACK FIX
-// ========================================================
+// Media Session
 function setupMediaSession() {
   if ("mediaSession" in navigator) {
     navigator.mediaSession.setActionHandler("play", playTrack);
@@ -974,8 +1069,6 @@ function setupListeners() {
 
   if (audio) {
     audio.addEventListener("timeupdate", updateProgress);
-    
-    // CRITICAL FIX: Ensures next track plays automatically even when screen is locked/off
     audio.addEventListener("ended", () => {
       if (isRepeat) {
         audio.currentTime = 0;
@@ -1092,9 +1185,7 @@ function setupListeners() {
   if (audioFileInput) audioFileInput.addEventListener("change", handleLocalFileUpload);
   if (drawerAudioFileInput) drawerAudioFileInput.addEventListener("change", handleLocalFileUpload);
 
-  // ========================================================
-  // GLOBAL ZEN MODE (DOUBLE-CLICK / DOUBLE-TAP / SHORTCUTS)
-  // ========================================================
+  // Global Zen Trigger
   let lastTouchTime = 0;
 
   function handleZenTrigger(e) {

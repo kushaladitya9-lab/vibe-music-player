@@ -896,18 +896,6 @@ function setupListeners() {
   if (moodToggleBtn) moodToggleBtn.addEventListener("click", cycleMood);
   if (zenToggleBtn) zenToggleBtn.addEventListener("click", toggleZenMode);
 
-  // Zen Mode trigger via background double-click / click anywhere to exit
-  document.body.addEventListener("click", (e) => {
-    if (isZenMode) {
-      exitZenMode();
-    }
-  });
-
-  document.body.addEventListener("dblclick", (e) => {
-    if (e.target.closest(".player-container") || e.target.closest(".playlist-drawer") || e.target.closest(".draggable-volume-box")) return;
-    toggleZenMode();
-  });
-
   // Backgrounds & Moods
   document.querySelectorAll(".bg-btn").forEach(btn => {
     btn.addEventListener("click", () => {
@@ -981,7 +969,46 @@ function setupListeners() {
   if (audioFileInput) audioFileInput.addEventListener("change", handleLocalFileUpload);
   if (drawerAudioFileInput) drawerAudioFileInput.addEventListener("change", handleLocalFileUpload);
 
-  // Keyboard Shortcuts
+  // ========================================================
+  // GLOBAL ZEN MODE (DOUBLE-CLICK / DOUBLE-TAP / SHORTCUTS)
+  // ========================================================
+  let lastTouchTime = 0;
+
+  function handleZenTrigger(e) {
+    if (
+      e.target.closest("button") || 
+      e.target.closest("input") || 
+      e.target.closest("#seek-container") || 
+      e.target.closest(".playlist-drawer") || 
+      e.target.closest(".playlist-item") ||
+      e.target.closest(".draggable-volume-box")
+    ) {
+      return;
+    }
+    toggleZenMode();
+  }
+
+  // 1. Desktop Double Click anywhere on window
+  window.addEventListener("dblclick", handleZenTrigger);
+
+  // 2. Mobile / Touchscreen Double Tap anywhere
+  window.addEventListener("touchend", (e) => {
+    const now = Date.now();
+    const timeDiff = now - lastTouchTime;
+    if (timeDiff < 320 && timeDiff > 40) {
+      handleZenTrigger(e);
+    }
+    lastTouchTime = now;
+  });
+
+  // 3. Click anywhere to exit Zen Mode
+  window.addEventListener("click", (e) => {
+    if (isZenMode && !e.target.closest("#zen-toggle-btn")) {
+      exitZenMode();
+    }
+  });
+
+  // 4. Keyboard Shortcuts (Space = Play/Pause, Z = Zen Mode, Esc = Exit Zen)
   document.addEventListener("keydown", (e) => {
     if (e.target.tagName === "INPUT") return;
 

@@ -1,5 +1,5 @@
 // ========================================================
-// 1. SUPABASE CONFIGURATION (Configured & Live)
+// 1. SUPABASE CONFIGURATION
 // ========================================================
 const SUPABASE_URL = "https://kmaypezsvnteyzjvmjgq.supabase.co"; 
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImttYXlwZXpzdm50ZXl6anZtamdxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc0MTk4OTcsImV4cCI6MjEwMjk5NTg5N30.uqr4w30jrhZ0bobikbU2IetTrJ9moFUg7v3SNEsdDYQ"; 
@@ -62,7 +62,6 @@ const baseTracks = [
 
 const FALLBACK_ARTIST = "My Favourite Artist";
 
-// 4 Backgrounds & 4 Moods
 const backgrounds = [
   { name: "Wallpaper 1", desktop: "bg1-desktop.png", mobile: "bg1-mobile.png" },
   { name: "Wallpaper 2", desktop: "bg2-desktop.png", mobile: "bg2-mobile.png" },
@@ -86,8 +85,8 @@ let isPlaying = false;
 let isShuffle = false;
 let isRepeat = false;
 let isZenMode = false;
+let isFading = false;
 
-// Filter/Tab State ("all", "liked", or "custom")
 let currentTab = "all"; 
 let activeCustomPlaylistName = null;
 
@@ -95,14 +94,9 @@ let currentBgIndex = localStorage.getItem("vibe_bg_idx") || "0";
 let customBgData = localStorage.getItem("vibe_custom_bg") || null;
 let currentMoodIndex = parseInt(localStorage.getItem("vibe_mood_idx") || "1");
 let likedTrackIds = JSON.parse(localStorage.getItem("vibe_liked_songs") || "[]");
-
-// Track Info Overrides: { [trackId]: { title: string, artist: string } }
 let trackOverrides = JSON.parse(localStorage.getItem("vibe_track_overrides") || "{}");
-
-// Custom Playlists State: { "PlaylistName": ["s1", "s2"] }
 let customPlaylists = JSON.parse(localStorage.getItem("vibe_custom_playlists") || "{}");
 
-// Web Audio Rain State
 let audioCtx = null;
 let rainGainNode = null;
 let isWebAudioInit = false;
@@ -110,7 +104,7 @@ let isWebAudioInit = false;
 // DOM References
 let audio, trackTitle, trackArtist, playBtn, playIcon, prevBtn, nextBtn;
 let shuffleBtn, repeatBtn, seekContainer, seekProgress, seekThumb;
-let currentTimeEl, durationTimeEl, drawerBackdrop, playlistDrawer;
+let currentTimeEl, durationTimeEl, drawerBackdrop, playlistDrawer, themeDrawer;
 let playlistScrollList, trackCountBadge, audioFileInput, drawerAudioFileInput;
 let mainAudioInput, uploadModal, uploadStatusText;
 let mainHeartBtn, mainHeartIcon, likedCountBadge;
@@ -119,6 +113,7 @@ let searchInput, tabAllBtn, tabLikedBtn, rainSlider;
 let volumeSlider, volumeIcon, draggableVolume;
 let createPlaylistBtn, customPlaylistsContainer;
 let customBgInput, customBgLabel, customBgText;
+let playerContainer;
 
 let balls = [];
 
@@ -149,6 +144,7 @@ function initPlayer() {
 
   drawerBackdrop = document.getElementById("drawer-backdrop");
   playlistDrawer = document.getElementById("playlist-drawer");
+  themeDrawer = document.getElementById("theme-drawer");
   playlistScrollList = document.getElementById("playlist-scroll-list");
   trackCountBadge = document.getElementById("track-count");
   likedCountBadge = document.getElementById("liked-count");
@@ -180,8 +176,8 @@ function initPlayer() {
   customBgInput = document.getElementById("custom-bg-input");
   customBgLabel = document.getElementById("custom-bg-label");
   customBgText = document.getElementById("custom-bg-text");
+  playerContainer = document.getElementById("player-container");
 
-  // Load Saved Background
   if (currentBgIndex === "custom" && customBgData) {
     applyCustomBackground(customBgData);
   } else {
@@ -198,6 +194,7 @@ function initPlayer() {
   initWeatherCanvas();
   setupDraggableVolume();
   renderCustomPlaylists();
+  setupSwipeGestures();
 
   fetchSupabaseSongs();
 }
@@ -301,7 +298,7 @@ async function handleMainPlaylistUpload(file) {
     await fetchSupabaseSongs();
     loadTrack(playlist.length - 1);
     playTrack();
-    closeDrawer();
+    closeAllDrawers();
 
   } catch (err) {
     hideUploadModal();
@@ -506,7 +503,7 @@ function initRainAudio() {
 }
 
 // ========================================================
-// TRACK LOADER & EDIT TRACK INFO
+// TRACK LOADER, EDIT INFO & SMOOTH FADE TRANSITION
 // ========================================================
 function loadTrack(index) {
   if (playlist.length === 0) return;
@@ -531,6 +528,42 @@ function loadTrack(index) {
   updateMediaSessionMetadata(track);
 }
 
+// Smooth Soft Crossfade Helper
+function triggerFadeTransition(actionCallback) {
+  if (!audio || !isPlaying || isFading) {
+    actionCallback();
+    return;
+  }
+
+  isFading = true;
+  const targetVol = parseFloat(volumeSlider ? volumeSlider.value : 1);
+  let currentVol = audio.volume;
+  const interval = 25;
+  const step = currentVol / (220 / interval);
+
+  const fadeOutTimer = setInterval(() => {
+    currentVol = Math.max(0, currentVol - step);
+    audio.volume = currentVol;
+    if (currentVol <= 0.05) {
+      clearInterval(fadeOutTimer);
+      audio.volume = 0;
+      actionCallback();
+
+      let inVol = 0;
+      const stepIn = targetVol / (220 / interval);
+      const fadeInTimer = setInterval(() => {
+        inVol = Math.min(targetVol, inVol + stepIn);
+        audio.volume = inVol;
+        if (inVol >= targetVol) {
+          clearInterval(fadeInTimer);
+          audio.volume = targetVol;
+          isFading = false;
+        }
+      }, interval);
+    }
+  }, interval);
+}
+
 function editTrackInfo(trackId) {
   const track = playlist.find(t => t.id === trackId);
   if (!track) return;
@@ -547,11 +580,7 @@ function editTrackInfo(trackId) {
   const finalTitle = newTitle.trim() || currentTitle;
   const finalArtist = newArtist.trim() || FALLBACK_ARTIST;
 
-  trackOverrides[trackId] = {
-    title: finalTitle,
-    artist: finalArtist
-  };
-
+  trackOverrides[trackId] = { title: finalTitle, artist: finalArtist };
   localStorage.setItem("vibe_track_overrides", JSON.stringify(trackOverrides));
   rebuildPlaylist();
 
@@ -733,6 +762,45 @@ function updateLikedCount() {
 }
 
 // ========================================================
+// MOBILE SWIPE GESTURES
+// ========================================================
+function setupSwipeGestures() {
+  let touchStartX = 0;
+  let touchStartY = 0;
+
+  window.addEventListener("touchstart", (e) => {
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+  }, { passive: true });
+
+  window.addEventListener("touchend", (e) => {
+    // Avoid triggering when user interacts inside modals or volume slider
+    if (
+      e.target.closest("#volume-slider") || 
+      e.target.closest("#seek-container") ||
+      e.target.closest(".playlist-drawer") ||
+      e.target.closest("button")
+    ) {
+      return;
+    }
+
+    const touchEndX = e.changedTouches[0].clientX;
+    const touchEndY = e.changedTouches[0].clientY;
+    const diffX = touchEndX - touchStartX;
+    const diffY = touchEndY - touchStartY;
+
+    // Horizontal swipe threshold: > 60px and more horizontal than vertical
+    if (Math.abs(diffX) > 60 && Math.abs(diffX) > Math.abs(diffY) * 1.5) {
+      if (diffX < 0) {
+        triggerFadeTransition(nextTrack); // Swipe Left -> Next
+      } else {
+        triggerFadeTransition(prevTrack); // Swipe Right -> Prev
+      }
+    }
+  });
+}
+
+// ========================================================
 // CUSTOM PLAYLISTS SYSTEM
 // ========================================================
 function renderCustomPlaylists() {
@@ -744,14 +812,10 @@ function renderCustomPlaylists() {
   playlistNames.forEach(name => {
     const wrapper = document.createElement("div");
     wrapper.style.cssText = `
-      display: inline-flex;
-      align-items: center;
+      display: inline-flex; align-items: center;
       background: ${activeCustomPlaylistName === name ? "rgba(255, 222, 89, 0.18)" : "rgba(255,255,255,0.06)"};
       border: 1px solid ${activeCustomPlaylistName === name ? "var(--accent-gold)" : "rgba(255,255,255,0.12)"};
-      border-radius: 8px;
-      overflow: hidden;
-      margin-right: 5px;
-      flex-shrink: 0;
+      border-radius: 8px; overflow: hidden; margin-right: 5px; flex-shrink: 0;
     `;
 
     const chip = document.createElement("button");
@@ -769,11 +833,8 @@ function renderCustomPlaylists() {
 
     const delBtn = document.createElement("button");
     delBtn.title = `Delete playlist "${name}"`;
-    delBtn.style.cssText = "background: transparent; border: none; color: rgba(255,255,255,0.45); padding: 5px 6px; cursor: pointer; font-size: 0.82rem; display: flex; align-items: center; transition: color 0.2s;";
+    delBtn.style.cssText = "background: transparent; border: none; color: rgba(255,255,255,0.45); padding: 5px 6px; cursor: pointer; font-size: 0.82rem; display: flex; align-items: center;";
     delBtn.innerHTML = `<i class="ri-close-line"></i>`;
-
-    delBtn.addEventListener("mouseenter", () => { delBtn.style.color = "#ff4757"; });
-    delBtn.addEventListener("mouseleave", () => { delBtn.style.color = "rgba(255,255,255,0.45)"; });
 
     delBtn.addEventListener("click", (e) => {
       e.stopPropagation();
@@ -792,18 +853,18 @@ function createNewPlaylist() {
   const cleanName = name.trim();
 
   if (customPlaylists[cleanName]) {
-    alert("Playlist with this name already exists!");
+    alert("Playlist already exists!");
     return;
   }
 
   customPlaylists[cleanName] = [];
   localStorage.setItem("vibe_custom_playlists", JSON.stringify(customPlaylists));
   renderCustomPlaylists();
-  alert(`Playlist "${cleanName}" created successfully! Now you can add songs to it.`);
+  alert(`Playlist "${cleanName}" created!`);
 }
 
 function deleteCustomPlaylist(name) {
-  if (confirm(`Are you sure you want to delete playlist "${name}"?`)) {
+  if (confirm(`Delete playlist "${name}"?`)) {
     delete customPlaylists[name];
     localStorage.setItem("vibe_custom_playlists", JSON.stringify(customPlaylists));
     if (activeCustomPlaylistName === name) {
@@ -836,7 +897,7 @@ function removeSongFromCustomPlaylist(trackId, playlistName) {
   renderPlaylist();
 }
 
-// Playlist Drawer
+// Playlist Scroll Render
 function renderPlaylist() {
   if (!playlistScrollList) return;
   playlistScrollList.innerHTML = "";
@@ -854,7 +915,7 @@ function renderPlaylist() {
   if (targetTracks.length === 0) {
     const emptyMsg = document.createElement("p");
     emptyMsg.style.cssText = "text-align: center; color: rgba(255,255,255,0.4); font-size: 0.85rem; padding: 25px 0;";
-    emptyMsg.textContent = currentTab === "custom" ? "No songs in this playlist yet. Add some from 'All Tracks'!" : "No songs found.";
+    emptyMsg.textContent = currentTab === "custom" ? "No songs in this playlist. Add some from 'All Tracks'!" : "No songs found.";
     playlistScrollList.appendChild(emptyMsg);
     return;
   }
@@ -911,9 +972,12 @@ function renderPlaylist() {
         e.target.closest(".item-playlist-remove-btn") ||
         e.target.closest(".item-edit-btn")
       ) return;
-      loadTrack(originalIndex);
-      playTrack();
-      closeDrawer();
+      
+      triggerFadeTransition(() => {
+        loadTrack(originalIndex);
+        playTrack();
+      });
+      closeAllDrawers();
     });
 
     const editBtn = item.querySelector(".item-edit-btn");
@@ -939,10 +1003,10 @@ function renderPlaylist() {
           e.stopPropagation();
           const pNames = Object.keys(customPlaylists);
           if (pNames.length === 0) {
-            alert("Please create a custom playlist first using the '+ New Playlist' button above!");
+            alert("Please create a custom playlist first using '+ New Playlist'!");
             return;
           }
-          const choice = prompt(`Select playlist to add "${track.title}":\nAvailable:\n- ${pNames.join("\n- ")}`);
+          const choice = prompt(`Select playlist to add "${track.title}":\n- ${pNames.join("\n- ")}`);
           if (choice && customPlaylists[choice.trim()]) {
             addSongToCustomPlaylist(track.id, choice.trim());
           } else if (choice) {
@@ -977,13 +1041,22 @@ function updateTrackCount() {
   }
 }
 
-function openDrawer() {
+// Drawer Open / Close Controls
+function openPlaylistDrawer() {
+  closeAllDrawers();
   if (playlistDrawer) playlistDrawer.classList.add("active");
   if (drawerBackdrop) drawerBackdrop.classList.add("active");
 }
 
-function closeDrawer() {
+function openThemeDrawer() {
+  closeAllDrawers();
+  if (themeDrawer) themeDrawer.classList.add("active");
+  if (drawerBackdrop) drawerBackdrop.classList.add("active");
+}
+
+function closeAllDrawers() {
   if (playlistDrawer) playlistDrawer.classList.remove("active");
+  if (themeDrawer) themeDrawer.classList.remove("active");
   if (drawerBackdrop) drawerBackdrop.classList.remove("active");
 }
 
@@ -992,14 +1065,8 @@ function setupMediaSession() {
   if ("mediaSession" in navigator) {
     navigator.mediaSession.setActionHandler("play", playTrack);
     navigator.mediaSession.setActionHandler("pause", pauseTrack);
-    navigator.mediaSession.setActionHandler("previoustrack", prevTrack);
-    navigator.mediaSession.setActionHandler("nexttrack", nextTrack);
-    navigator.mediaSession.setActionHandler("seekbackward", (details) => {
-      audio.currentTime = Math.max(audio.currentTime - 10, 0);
-    });
-    navigator.mediaSession.setActionHandler("seekforward", (details) => {
-      audio.currentTime = Math.min(audio.currentTime + 10, audio.duration);
-    });
+    navigator.mediaSession.setActionHandler("previoustrack", () => triggerFadeTransition(prevTrack));
+    navigator.mediaSession.setActionHandler("nexttrack", () => triggerFadeTransition(nextTrack));
   }
 }
 
@@ -1014,7 +1081,7 @@ function updateMediaSessionMetadata(track) {
   }
 }
 
-// Weather Canvas Engine
+// Weather Canvas
 function initWeatherCanvas() {
   const canvas = document.getElementById("weather-canvas");
   if (!canvas) return;
@@ -1078,17 +1145,19 @@ function initWeatherCanvas() {
   drawWeather();
 }
 
-// Bouncing Balls Physics
+// 3 Transparent Bouncing Balls Physics
 function setupBouncingBalls() {
   const btnDrawer = document.getElementById("open-drawer-btn");
+  const btnTheme = document.getElementById("open-theme-btn");
   const btnUpload = document.getElementById("quick-upload-btn");
 
   const winW = window.innerWidth;
   const winH = window.innerHeight;
 
   balls = [
-    { el: btnDrawer, x: 40, y: 120, vx: 2.1, vy: 1.7, size: 52, isPaused: false },
-    { el: btnUpload, x: Math.max(10, winW - 100), y: 170, vx: -2.3, vy: 2.0, size: 52, isPaused: false }
+    { el: btnDrawer, x: 30, y: 110, vx: 2.1, vy: 1.6, size: 52, isPaused: false },
+    { el: btnTheme, x: Math.max(10, winW - 90), y: 130, vx: -1.8, vy: 2.2, size: 52, isPaused: false },
+    { el: btnUpload, x: 50, y: Math.max(10, winH - 180), vx: 2.3, vy: -1.7, size: 52, isPaused: false }
   ].filter(b => b.el !== null);
 
   balls.forEach(ball => {
@@ -1146,15 +1215,15 @@ function handleLocalFileUpload(event) {
   rebuildPlaylist();
   loadTrack(startIndex);
   playTrack();
-  closeDrawer();
+  closeAllDrawers();
   event.target.value = "";
 }
 
 // Event Listeners Binding
 function setupListeners() {
   if (playBtn) playBtn.addEventListener("click", togglePlay);
-  if (nextBtn) nextBtn.addEventListener("click", nextTrack);
-  if (prevBtn) prevBtn.addEventListener("click", prevTrack);
+  if (nextBtn) nextBtn.addEventListener("click", () => triggerFadeTransition(nextTrack));
+  if (prevBtn) prevBtn.addEventListener("click", () => triggerFadeTransition(prevTrack));
 
   if (shuffleBtn) {
     shuffleBtn.addEventListener("click", () => {
@@ -1177,7 +1246,7 @@ function setupListeners() {
         audio.currentTime = 0;
         playTrack();
       } else {
-        nextTrack();
+        triggerFadeTransition(nextTrack);
       }
     });
   }
@@ -1204,23 +1273,16 @@ function setupListeners() {
   if (moodToggleBtn) moodToggleBtn.addEventListener("click", cycleMood);
   if (zenToggleBtn) zenToggleBtn.addEventListener("click", toggleZenMode);
 
-  // In-App Refresh & PWA Update Checker
+  // In-App Refresh Button
   if (appRefreshBtn) {
     appRefreshBtn.addEventListener("click", () => {
       if (refreshIcon) refreshIcon.classList.add("spin-anim");
-
-      // 1. Re-fetch live cloud songs
       fetchSupabaseSongs();
-
-      // 2. Force service worker update check
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations().then(registrations => {
-          for (let registration of registrations) {
-            registration.update();
-          }
+          for (let registration of registrations) { registration.update(); }
         });
       }
-
       setTimeout(() => {
         if (refreshIcon) refreshIcon.classList.remove("spin-anim");
         window.location.reload();
@@ -1228,29 +1290,20 @@ function setupListeners() {
     });
   }
 
-  // Custom Playlists Buttons
-  if (createPlaylistBtn) {
-    createPlaylistBtn.addEventListener("click", createNewPlaylist);
-  }
+  if (createPlaylistBtn) createPlaylistBtn.addEventListener("click", createNewPlaylist);
 
-  // Backgrounds & Moods
+  // Wallpapers & Moods
   document.querySelectorAll(".bg-btn:not(#custom-bg-label)").forEach(btn => {
-    btn.addEventListener("click", () => {
-      applyBackground(parseInt(btn.getAttribute("data-bg")));
-    });
+    btn.addEventListener("click", () => applyBackground(parseInt(btn.getAttribute("data-bg"))));
   });
 
-  if (customBgInput) {
-    customBgInput.addEventListener("change", handleCustomBgUpload);
-  }
+  if (customBgInput) customBgInput.addEventListener("change", handleCustomBgUpload);
 
   document.querySelectorAll(".mood-btn").forEach(btn => {
-    btn.addEventListener("click", () => {
-      applyMood(parseInt(btn.getAttribute("data-mood")), true);
-    });
+    btn.addEventListener("click", () => applyMood(parseInt(btn.getAttribute("data-mood")), true));
   });
 
-  // Search & Filters
+  // Search & Filter Tabs
   if (searchInput) searchInput.addEventListener("input", renderPlaylist);
   
   if (tabAllBtn) {
@@ -1282,17 +1335,13 @@ function setupListeners() {
     });
   }
 
-  // Main Playlist Upload
+  // Cloud Upload PIN
   if (mainAudioInput) {
     mainAudioInput.addEventListener("change", (e) => {
       if (!e.target.files || e.target.files.length === 0) return;
       const file = e.target.files[0];
-
       const userPin = prompt(`Enter PIN to upload "${file.name}" to Main Playlist:`);
-      if (userPin === null) {
-        e.target.value = "";
-        return;
-      }
+      if (userPin === null) { e.target.value = ""; return; }
 
       if (userPin.trim() === ADMIN_PIN) {
         handleMainPlaylistUpload(file);
@@ -1303,65 +1352,51 @@ function setupListeners() {
     });
   }
 
-  // Local Uploads
-  const openBtn = document.getElementById("open-drawer-btn");
+  // 3 Bouncing Balls Click Handlers
+  const openDrawerBtn = document.getElementById("open-drawer-btn");
+  const openThemeBtn = document.getElementById("open-theme-btn");
   const quickUploadBtn = document.getElementById("quick-upload-btn");
-  const closeBtn = document.getElementById("close-drawer-btn");
+  const closeDrawerBtn = document.getElementById("close-drawer-btn");
+  const closeThemeBtn = document.getElementById("close-theme-btn");
 
-  if (openBtn) openBtn.addEventListener("click", (e) => { e.stopPropagation(); openDrawer(); });
+  if (openDrawerBtn) openDrawerBtn.addEventListener("click", (e) => { e.stopPropagation(); openPlaylistDrawer(); });
+  if (openThemeBtn) openThemeBtn.addEventListener("click", (e) => { e.stopPropagation(); openThemeDrawer(); });
   if (quickUploadBtn) quickUploadBtn.addEventListener("click", (e) => { e.stopPropagation(); if (audioFileInput) audioFileInput.click(); });
-  if (closeBtn) closeBtn.addEventListener("click", closeDrawer);
-  if (drawerBackdrop) drawerBackdrop.addEventListener("click", closeDrawer);
+
+  if (closeDrawerBtn) closeDrawerBtn.addEventListener("click", closeAllDrawers);
+  if (closeThemeBtn) closeThemeBtn.addEventListener("click", closeAllDrawers);
+  if (drawerBackdrop) drawerBackdrop.addEventListener("click", closeAllDrawers);
 
   if (audioFileInput) audioFileInput.addEventListener("change", handleLocalFileUpload);
   if (drawerAudioFileInput) drawerAudioFileInput.addEventListener("change", handleLocalFileUpload);
 
-  // Global Zen Trigger
+  // Global Zen Trigger (Double Tap / Double Click)
   let lastTouchTime = 0;
-
   function handleZenTrigger(e) {
     if (
-      e.target.closest("button") || 
-      e.target.closest("input") || 
-      e.target.closest("#seek-container") || 
-      e.target.closest(".playlist-drawer") || 
-      e.target.closest(".playlist-item") ||
-      e.target.closest(".draggable-volume-box")
-    ) {
-      return;
-    }
+      e.target.closest("button") || e.target.closest("input") || 
+      e.target.closest("#seek-container") || e.target.closest(".playlist-drawer") || 
+      e.target.closest(".playlist-item") || e.target.closest(".draggable-volume-box")
+    ) return;
     toggleZenMode();
   }
 
   window.addEventListener("dblclick", handleZenTrigger);
-
   window.addEventListener("touchend", (e) => {
     const now = Date.now();
-    const timeDiff = now - lastTouchTime;
-    if (timeDiff < 320 && timeDiff > 40) {
-      handleZenTrigger(e);
-    }
+    if (now - lastTouchTime < 320 && now - lastTouchTime > 40) handleZenTrigger(e);
     lastTouchTime = now;
   });
 
   window.addEventListener("click", (e) => {
-    if (isZenMode && !e.target.closest("#zen-toggle-btn")) {
-      exitZenMode();
-    }
+    if (isZenMode && !e.target.closest("#zen-toggle-btn")) exitZenMode();
   });
 
   document.addEventListener("keydown", (e) => {
     if (e.target.tagName === "INPUT") return;
-
-    if (e.code === "Space") {
-      e.preventDefault();
-      togglePlay();
-    } else if (e.code === "KeyZ") {
-      e.preventDefault();
-      toggleZenMode();
-    } else if (e.code === "Escape" && isZenMode) {
-      exitZenMode();
-    }
+    if (e.code === "Space") { e.preventDefault(); togglePlay(); }
+    else if (e.code === "KeyZ") { e.preventDefault(); toggleZenMode(); }
+    else if (e.code === "Escape" && isZenMode) { exitZenMode(); }
   });
 }
 

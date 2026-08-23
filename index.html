@@ -4,22 +4,16 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   
-  <!-- Primary SEO Meta Tags -->
   <title>Vibe Music Player - Aesthetic Indian Lo-Fi & Retro Player</title>
   <meta name="title" content="Vibe Music Player - Aesthetic Indian Lo-Fi & Retro Player">
   <meta name="description" content="Aesthetic Indian Tapri & Lo-Fi retro music player with dynamic moods, rain sound synthesizer, zen mode, custom wallpapers, and cloud synced tracks.">
-  <meta name="keywords" content="vibe music player, lofi music player, indian aesthetic player, retro bollywood lofi, aditya kushal">
   <meta name="author" content="Aditya Kushal">
-  <meta name="robots" content="index, follow">
 
-  <!-- Open Graph / WhatsApp Share Preview -->
   <meta property="og:type" content="website">
-  <meta property="og:url" content="https://github.com/">
   <meta property="og:title" content="Vibe Music Player - Retro Indian Lo-Fi">
-  <meta property="og:description" content="Listen to curated retro vibes, dynamic rain synthesizer, and switch atmospheric themes.">
   <meta property="og:image" content="app-icon.png">
 
-  <!-- PWA & Mobile Web App Meta -->
+  <!-- PWA Setup -->
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#0b0d10">
   <meta name="mobile-web-app-capable" content="yes">
@@ -33,19 +27,16 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/remixicon@4.2.0/fonts/remixicon.css" rel="stylesheet"/>
-  <!-- Supabase JS SDK -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body class="mood-sunset">
 
-  <!-- Responsive Background & Scrim -->
+  <!-- Background & Weather -->
   <div class="app-background" id="app-background"></div>
   <div class="scrim-overlay"></div>
-
-  <!-- Dynamic Weather Canvas -->
   <canvas id="weather-canvas"></canvas>
 
-  <!-- Top Action Container (Mood, Zen Mode & In-App Refresh) -->
+  <!-- Top Action Container (Mood Quick Toggle, Zen & In-App Sync) -->
   <div class="scene-switcher-container">
     <button class="scene-btn" id="mood-toggle-btn" title="Click to cycle Mood">
       <i class="ri-sun-cloudy-line" id="mood-icon"></i>
@@ -60,28 +51,35 @@
     </button>
   </div>
 
-  <!-- 2 Dedicated Transparent Bouncing Screen Balls -->
-  <button class="bounce-ball" id="open-drawer-btn" title="Open Playlist">
+  <!-- 3 Transparent Glassmorphic Bouncing Balls -->
+  <!-- Ball 1: Playlists & Songs Drawer -->
+  <button class="bounce-ball" id="open-drawer-btn" title="Open Songs & Playlists">
     <i class="ri-play-list-2-fill"></i>
     <span class="float-badge" id="track-count">0</span>
   </button>
 
+  <!-- Ball 2: Wallpapers & Theme Studio -->
+  <button class="bounce-ball" id="open-theme-btn" title="Themes, Wallpapers & Rain Mixer">
+    <i class="ri-palette-line"></i>
+  </button>
+
+  <!-- Ball 3: Quick Local Audio Upload -->
   <button class="bounce-ball" id="quick-upload-btn" title="Add Local Audio">
     <i class="ri-folder-music-fill"></i>
   </button>
   <input type="file" id="audio-file-input" accept="audio/*" multiple hidden>
 
-  <!-- Clean Floating & Draggable Volume Pill -->
+  <!-- Draggable Volume Pill -->
   <div class="draggable-volume-box" id="draggable-volume" title="Drag anywhere!">
     <i class="ri-volume-up-line" id="volume-icon" title="Mute/Unmute"></i>
     <input type="range" id="volume-slider" min="0" max="1" step="0.01" value="1">
   </div>
 
-  <!-- Main Transparent Overlay Player -->
-  <main class="player-container">
+  <!-- Main Player Container (Supports Left/Right Swipe on Touch) -->
+  <main class="player-container" id="player-container">
     <div class="player-content">
       
-      <!-- 1. Track Meta & Like Heart -->
+      <!-- Track Meta -->
       <section class="track-meta">
         <div class="title-like-row">
           <h1 class="track-title" id="track-title">Loading Track...</h1>
@@ -92,7 +90,7 @@
         <p class="track-artist" id="track-artist">My Favourite Artist</p>
       </section>
 
-      <!-- 2. Progress / Seek Bar Section -->
+      <!-- Progress / Seek Bar -->
       <section class="progress-section">
         <div class="seek-container" id="seek-container">
           <div class="seek-bar" id="seek-bar">
@@ -106,7 +104,7 @@
         </div>
       </section>
 
-      <!-- 3. Music Control Buttons -->
+      <!-- Music Controls -->
       <section class="controls-section">
         <button class="ctrl-btn icon-only" id="shuffle-btn" title="Shuffle">
           <i class="ri-shuffle-line"></i>
@@ -128,95 +126,57 @@
     </div>
   </main>
 
-  <!-- Playlist Drawer Backdrop -->
+  <!-- Shared Drawer Backdrop -->
   <div class="drawer-backdrop" id="drawer-backdrop"></div>
 
-  <!-- Bottom Slide-Up Song List Drawer -->
+  <!-- ============================================== -->
+  <!-- 1. SONGS & PLAYLIST DRAWER (BALL 1)            -->
+  <!-- ============================================== -->
   <aside class="playlist-drawer" id="playlist-drawer">
     <div class="drawer-handle"></div>
     
     <div class="drawer-header">
       <div>
-        <h3>Tracks & Settings</h3>
-        <p>Edit Info, Wallpapers & Sync</p>
+        <h3>Songs & Playlists</h3>
+        <p>Curated vibes & cloud sync</p>
       </div>
       <button class="close-drawer-btn" id="close-drawer-btn">
         <i class="ri-close-line"></i>
       </button>
     </div>
 
-    <!-- 1. Background Image Switcher (Includes Custom Wallpaper Upload) -->
-    <div class="custom-picker-section">
-      <span class="picker-title"><i class="ri-image-2-line"></i> Background Image:</span>
-      <div class="picker-grid">
-        <button class="grid-btn bg-btn active" data-bg="0">Wallpaper 1</button>
-        <button class="grid-btn bg-btn" data-bg="1">Wallpaper 2</button>
-        <button class="grid-btn bg-btn" data-bg="2">Wallpaper 3</button>
-        <button class="grid-btn bg-btn" data-bg="3">Wallpaper 4</button>
-        
-        <!-- Custom Background Button for any format (JPG, PNG, WEBP, GIF, AVIF, etc.) -->
-        <label for="custom-bg-input" class="grid-btn bg-btn" id="custom-bg-label" style="grid-column: span 2; cursor: pointer;">
-          <i class="ri-image-add-line"></i> <span id="custom-bg-text">+ Custom Wallpaper (JPG, PNG, WEBP...)</span>
-        </label>
-        <input type="file" id="custom-bg-input" accept="image/*" hidden>
-      </div>
-    </div>
-
-    <!-- 2. Mood & Atmosphere Effects Switcher -->
-    <div class="custom-picker-section">
-      <span class="picker-title"><i class="ri-sparkling-line"></i> Mood & Atmosphere:</span>
-      <div class="picker-grid">
-        <button class="grid-btn mood-btn" data-mood="0"><i class="ri-sun-fill"></i> Sunrise</button>
-        <button class="grid-btn mood-btn active" data-mood="1"><i class="ri-sun-cloudy-line"></i> Sunset</button>
-        <button class="grid-btn mood-btn" data-mood="2"><i class="ri-rainy-line"></i> Monsoon</button>
-        <button class="grid-btn mood-btn" data-mood="3"><i class="ri-moon-clear-line"></i> Midnight</button>
-      </div>
-    </div>
-
-    <!-- 3. Ambient Lo-Fi Rain Volume -->
-    <div class="ambient-mixer-card">
-      <div class="ambient-row">
-        <div class="ambient-label">
-          <i class="ri-rainy-line"></i> <span>Rain Lo-Fi Sound</span>
-        </div>
-        <input type="range" id="rain-slider" min="0" max="1" step="0.05" value="0">
-      </div>
-    </div>
-
-    <!-- 4. Custom Playlists Management Section -->
+    <!-- Custom Playlists Section -->
     <div class="custom-picker-section">
       <div style="display: flex; justify-content: space-between; align-items: center;">
-        <span class="picker-title"><i class="ri-folder-add-line"></i> Custom Playlists:</span>
-        <button id="create-playlist-btn" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: var(--accent-gold); padding: 3px 10px; border-radius: 6px; font-size: 0.72rem; font-weight: 700; cursor: pointer;">+ New Playlist</button>
+        <span class="picker-title"><i class="ri-folder-add-line"></i> My Playlists:</span>
+        <button id="create-playlist-btn" class="mini-action-btn">+ New Playlist</button>
       </div>
-      <div id="custom-playlists-container" style="display: flex; gap: 6px; overflow-x: auto; padding: 2px 0;"></div>
+      <div id="custom-playlists-container" class="horizontal-chips-row"></div>
     </div>
 
-    <!-- 5. Instant Search Bar -->
+    <!-- Search Bar -->
     <div class="search-box-container">
       <i class="ri-search-2-line search-icon"></i>
-      <input type="text" id="playlist-search-input" placeholder="Search track name...">
+      <input type="text" id="playlist-search-input" placeholder="Search track or artist...">
     </div>
 
-    <!-- 6. Playlist Filter Tabs -->
+    <!-- Playlist Tabs -->
     <div class="playlist-tabs">
       <button class="tab-btn active" id="tab-all-btn">All Tracks</button>
       <button class="tab-btn" id="tab-liked-btn"><i class="ri-heart-fill"></i> Liked (<span id="liked-count">0</span>)</button>
     </div>
 
-    <!-- 7. Dual Upload Section (Main Playlist & Local Upload) -->
+    <!-- Dual Upload Section -->
     <div class="dual-upload-container">
-      <!-- Main Playlist Cloud Upload (PIN Protected) -->
       <label for="main-audio-input" class="upload-action-card global" id="btn-upload-main">
         <i class="ri-cloud-upload-fill"></i>
         <div class="upload-text">
           <strong>Upload to Main</strong>
-          <small>Syncs for everyone • PIN</small>
+          <small>Cloud sync • PIN protected</small>
         </div>
       </label>
       <input type="file" id="main-audio-input" accept="audio/*" hidden>
 
-      <!-- Local Upload (For Personal Session) -->
       <label for="drawer-audio-file-input" class="upload-action-card local">
         <i class="ri-hard-drive-2-fill"></i>
         <div class="upload-text">
@@ -227,8 +187,63 @@
       <input type="file" id="drawer-audio-file-input" accept="audio/*" multiple hidden>
     </div>
 
-    <!-- 8. Scrollable Songs List -->
+    <!-- Scrollable Songs List -->
     <div class="playlist-scroll-list" id="playlist-scroll-list"></div>
+  </aside>
+
+  <!-- ============================================== -->
+  <!-- 2. THEME & ATMOSPHERE DRAWER (BALL 2)          -->
+  <!-- ============================================== -->
+  <aside class="playlist-drawer theme-drawer" id="theme-drawer">
+    <div class="drawer-handle"></div>
+    
+    <div class="drawer-header">
+      <div>
+        <h3>Theme & Ambience Studio</h3>
+        <p>Custom Wallpapers, Moods & Rain Synth</p>
+      </div>
+      <button class="close-drawer-btn" id="close-theme-btn">
+        <i class="ri-close-line"></i>
+      </button>
+    </div>
+
+    <!-- Background Wallpaper Picker -->
+    <div class="custom-picker-section">
+      <span class="picker-title"><i class="ri-image-2-line"></i> Wallpaper Background:</span>
+      <div class="picker-grid">
+        <button class="grid-btn bg-btn active" data-bg="0">Wallpaper 1</button>
+        <button class="grid-btn bg-btn" data-bg="1">Wallpaper 2</button>
+        <button class="grid-btn bg-btn" data-bg="2">Wallpaper 3</button>
+        <button class="grid-btn bg-btn" data-bg="3">Wallpaper 4</button>
+        
+        <!-- Custom Wallpaper Upload Button (JPG, PNG, WEBP, GIF, AVIF) -->
+        <label for="custom-bg-input" class="grid-btn bg-btn" id="custom-bg-label" style="grid-column: span 2; cursor: pointer;">
+          <i class="ri-image-add-line"></i> <span id="custom-bg-text">+ Custom Wallpaper (Any format)</span>
+        </label>
+        <input type="file" id="custom-bg-input" accept="image/*" hidden>
+      </div>
+    </div>
+
+    <!-- Mood Effects Picker -->
+    <div class="custom-picker-section" style="margin-top: 6px;">
+      <span class="picker-title"><i class="ri-sparkling-line"></i> Atmospheric Lighting:</span>
+      <div class="picker-grid">
+        <button class="grid-btn mood-btn" data-mood="0"><i class="ri-sun-fill"></i> Sunrise</button>
+        <button class="grid-btn mood-btn active" data-mood="1"><i class="ri-sun-cloudy-line"></i> Sunset</button>
+        <button class="grid-btn mood-btn" data-mood="2"><i class="ri-rainy-line"></i> Monsoon</button>
+        <button class="grid-btn mood-btn" data-mood="3"><i class="ri-moon-clear-line"></i> Midnight</button>
+      </div>
+    </div>
+
+    <!-- Lo-Fi Rain Synthesizer -->
+    <div class="ambient-mixer-card" style="margin-top: 8px;">
+      <div class="ambient-row">
+        <div class="ambient-label">
+          <i class="ri-rainy-line"></i> <span>Rain Lo-Fi Synth</span>
+        </div>
+        <input type="range" id="rain-slider" min="0" max="1" step="0.05" value="0">
+      </div>
+    </div>
   </aside>
 
   <!-- Upload Loading Overlay -->
@@ -239,20 +254,15 @@
     </div>
   </div>
 
-  <!-- Native Audio -->
   <audio id="main-audio" preload="auto"></audio>
 
-  <!-- Service Worker Registration for PWA -->
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js')
-          .then(reg => console.log('PWA Service Worker registered:', reg.scope))
-          .catch(err => console.warn('PWA registration failed:', err));
+        navigator.serviceWorker.register('./sw.js').catch(err => console.warn(err));
       });
     }
   </script>
-
   <script src="script.js"></script>
 </body>
 </html>

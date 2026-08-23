@@ -101,6 +101,9 @@ let audioCtx = null;
 let rainGainNode = null;
 let isWebAudioInit = false;
 
+// Draggable Volume Box Global Position State for Collision
+let volBoxPos = { x: 0, y: 0, w: 180, h: 42 };
+
 // DOM References
 let audio, trackTitle, trackArtist, playBtn, playIcon, prevBtn, nextBtn;
 let shuffleBtn, repeatBtn, seekContainer, seekProgress, seekThumb;
@@ -190,9 +193,9 @@ function initPlayer() {
   loadTrack(currentTrackIndex);
   setupListeners();
   setupMediaSession();
+  setupDraggableVolume();
   setupBouncingBalls();
   initWeatherCanvas();
-  setupDraggableVolume();
   renderCustomPlaylists();
   setupSwipeGestures();
 
@@ -405,7 +408,7 @@ function cycleMood() {
 }
 
 // ========================================================
-// DRAGGABLE VOLUME BAR
+// DRAGGABLE VOLUME BAR WITH REAL-TIME COORDINATE TRACKING
 // ========================================================
 function setupDraggableVolume() {
   if (!draggableVolume) return;
@@ -417,6 +420,11 @@ function setupDraggableVolume() {
   let currentY = defaultY;
   let startX = 0, startY = 0;
   let isDragging = false;
+
+  volBoxPos.x = currentX;
+  volBoxPos.y = currentY;
+  volBoxPos.w = draggableVolume.offsetWidth || 180;
+  volBoxPos.h = draggableVolume.offsetHeight || 42;
 
   draggableVolume.style.transform = `translate3d(${currentX}px, ${currentY}px, 0)`;
 
@@ -433,14 +441,20 @@ function setupDraggableVolume() {
     let newX = e.clientX - startX;
     let newY = e.clientY - startY;
 
-    const maxX = window.innerWidth - draggableVolume.offsetWidth - 10;
-    const maxY = window.innerHeight - draggableVolume.offsetHeight - 10;
+    const maxX = window.innerWidth - (draggableVolume.offsetWidth || 180) - 10;
+    const maxY = window.innerHeight - (draggableVolume.offsetHeight || 42) - 10;
 
     newX = Math.max(10, Math.min(newX, maxX));
     newY = Math.max(10, Math.min(newY, maxY));
 
     currentX = newX;
     currentY = newY;
+
+    volBoxPos.x = currentX;
+    volBoxPos.y = currentY;
+    volBoxPos.w = draggableVolume.offsetWidth || 180;
+    volBoxPos.h = draggableVolume.offsetHeight || 42;
+
     draggableVolume.style.transform = `translate3d(${currentX}px, ${currentY}px, 0)`;
   }
 
@@ -453,6 +467,11 @@ function setupDraggableVolume() {
   draggableVolume.addEventListener("pointerdown", onPointerDown);
   window.addEventListener("pointermove", onPointerMove);
   window.addEventListener("pointerup", onPointerUp);
+
+  window.addEventListener("resize", () => {
+    volBoxPos.w = draggableVolume.offsetWidth || 180;
+    volBoxPos.h = draggableVolume.offsetHeight || 42;
+  });
 }
 
 // ========================================================
@@ -1143,7 +1162,7 @@ function initWeatherCanvas() {
 }
 
 // ========================================================
-// 3 TRANSPARENT BOUNCING BALLS & ELASTIC COLLISION PHYSICS
+// 3 BOUNCING BALLS + VOLUME BAR ELASTIC COLLISION ENGINE
 // ========================================================
 function setupBouncingBalls() {
   const btnDrawer = document.getElementById("open-drawer-btn");
@@ -1175,7 +1194,7 @@ function updatePhysics() {
   const winW = window.innerWidth;
   const winH = window.innerHeight;
 
-  // 1. Position Update & Boundary Bounces
+  // 1. Position Update & Window Edge Bouncing
   balls.forEach(ball => {
     if (!ball.isPaused) {
       ball.x += ball.vx;
@@ -1219,12 +1238,10 @@ function updatePhysics() {
         const nx = dx / dist;
         const ny = dy / dist;
 
-        // Relative velocity
         const kx = b1.vx - b2.vx;
         const ky = b1.vy - b2.vy;
         const p = kx * nx + ky * ny;
 
-        // Bounce if moving towards each other
         if (p > 0) {
           b1.vx -= p * nx;
           b1.vy -= p * ny;
@@ -1232,7 +1249,6 @@ function updatePhysics() {
           b2.vy += p * ny;
         }
 
-        // Positional separation to prevent overlapping/sticking
         const overlap = (minDist - dist) / 2;
         b1.x -= overlap * nx;
         b1.y -= overlap * ny;
@@ -1242,7 +1258,64 @@ function updatePhysics() {
     }
   }
 
-  // 3. Render Positions
+  // 3. Ball-to-Volume-Bar Collision (Circle vs AABB Elastic Bounce)
+  if (draggableVolume) {
+    const vLeft = volBoxPos.x;
+    const vRight = volBoxPos.x + volBoxPos.w;
+    const vTop = volBoxPos.y;
+    const vBottom = volBoxPos.y + volBoxPos.h;
+
+    balls.forEach(ball => {
+      const r = ball.size / 2;
+      const cx = ball.x + r;
+      const cy = ball.y + r;
+
+      // Find closest point on rectangular volume bar to circle center
+      const closestX = Math.max(vLeft, Math.min(cx, vRight));
+      const closestY = Math.max(vTop, Math.min(cy, vBottom));
+
+      const dx = cx - closestX;
+      const dy = cy - closestY;
+      const distSq = dx * dx + dy * dy;
+
+      if (distSq < r * r) {
+        const dist = Math.sqrt(distSq);
+        let nx = 0, ny = 0;
+        let overlap = 0;
+
+        if (dist > 0.001) {
+          nx = dx / dist;
+          ny = dy / dist;
+          overlap = r - dist;
+        } else {
+          // If circle center is deeply inside the box, push towards nearest edge
+          const toLeft = cx - vLeft;
+          const toRight = vRight - cx;
+          const toTop = cy - vTop;
+          const toBottom = vBottom - cy;
+          const minEdge = Math.min(toLeft, toRight, toTop, toBottom);
+
+          if (minEdge === toLeft) { nx = -1; ny = 0; overlap = r + toLeft; }
+          else if (minEdge === toRight) { nx = 1; ny = 0; overlap = r + toRight; }
+          else if (minEdge === toTop) { nx = 0; ny = -1; overlap = r + toTop; }
+          else { nx = 0; ny = 1; overlap = r + toBottom; }
+        }
+
+        // Elastic velocity bounce against the stationary/dragged bar
+        const dot = ball.vx * nx + ball.vy * ny;
+        if (dot < 0) {
+          ball.vx = ball.vx - 2 * dot * nx;
+          ball.vy = ball.vy - 2 * dot * ny;
+        }
+
+        // Positional separation to prevent sticking
+        ball.x += nx * overlap;
+        ball.y += ny * overlap;
+      }
+    });
+  }
+
+  // 4. Render Final Ball Transforms
   balls.forEach(ball => {
     ball.el.style.transform = `translate3d(${ball.x}px, ${ball.y}px, 0)`;
   });

@@ -503,7 +503,7 @@ function initRainAudio() {
 }
 
 // ========================================================
-// TRACK LOADER, EDIT INFO & SMOOTH FADE TRANSITION
+// TRACK LOADER, EDIT INFO & CROSSFADE
 // ========================================================
 function loadTrack(index) {
   if (playlist.length === 0) return;
@@ -528,7 +528,6 @@ function loadTrack(index) {
   updateMediaSessionMetadata(track);
 }
 
-// Smooth Soft Crossfade Helper
 function triggerFadeTransition(actionCallback) {
   if (!audio || !isPlaying || isFading) {
     actionCallback();
@@ -774,7 +773,6 @@ function setupSwipeGestures() {
   }, { passive: true });
 
   window.addEventListener("touchend", (e) => {
-    // Avoid triggering when user interacts inside modals or volume slider
     if (
       e.target.closest("#volume-slider") || 
       e.target.closest("#seek-container") ||
@@ -789,12 +787,11 @@ function setupSwipeGestures() {
     const diffX = touchEndX - touchStartX;
     const diffY = touchEndY - touchStartY;
 
-    // Horizontal swipe threshold: > 60px and more horizontal than vertical
     if (Math.abs(diffX) > 60 && Math.abs(diffX) > Math.abs(diffY) * 1.5) {
       if (diffX < 0) {
-        triggerFadeTransition(nextTrack); // Swipe Left -> Next
+        triggerFadeTransition(nextTrack);
       } else {
-        triggerFadeTransition(prevTrack); // Swipe Right -> Prev
+        triggerFadeTransition(prevTrack);
       }
     }
   });
@@ -1145,7 +1142,9 @@ function initWeatherCanvas() {
   drawWeather();
 }
 
-// 3 Transparent Bouncing Balls Physics
+// ========================================================
+// 3 TRANSPARENT BOUNCING BALLS & ELASTIC COLLISION PHYSICS
+// ========================================================
 function setupBouncingBalls() {
   const btnDrawer = document.getElementById("open-drawer-btn");
   const btnTheme = document.getElementById("open-theme-btn");
@@ -1176,17 +1175,75 @@ function updatePhysics() {
   const winW = window.innerWidth;
   const winH = window.innerHeight;
 
+  // 1. Position Update & Boundary Bounces
   balls.forEach(ball => {
     if (!ball.isPaused) {
       ball.x += ball.vx;
       ball.y += ball.vy;
 
-      if (ball.x <= 0) { ball.x = 0; ball.vx *= -1; }
-      else if (ball.x + ball.size >= winW) { ball.x = winW - ball.size; ball.vx *= -1; }
+      if (ball.x <= 0) {
+        ball.x = 0;
+        ball.vx *= -1;
+      } else if (ball.x + ball.size >= winW) {
+        ball.x = winW - ball.size;
+        ball.vx *= -1;
+      }
 
-      if (ball.y <= 0) { ball.y = 0; ball.vy *= -1; }
-      else if (ball.y + ball.size >= winH) { ball.y = winH - ball.size; ball.vy *= -1; }
+      if (ball.y <= 0) {
+        ball.y = 0;
+        ball.vy *= -1;
+      } else if (ball.y + ball.size >= winH) {
+        ball.y = winH - ball.size;
+        ball.vy *= -1;
+      }
     }
+  });
+
+  // 2. Ball-to-Ball Elastic Collisions
+  for (let i = 0; i < balls.length; i++) {
+    for (let j = i + 1; j < balls.length; j++) {
+      const b1 = balls[i];
+      const b2 = balls[j];
+
+      const c1x = b1.x + b1.size / 2;
+      const c1y = b1.y + b1.size / 2;
+      const c2x = b2.x + b2.size / 2;
+      const c2y = b2.y + b2.size / 2;
+
+      const dx = c2x - c1x;
+      const dy = c2y - c1y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const minDist = (b1.size + b2.size) / 2;
+
+      if (dist < minDist && dist > 0) {
+        const nx = dx / dist;
+        const ny = dy / dist;
+
+        // Relative velocity
+        const kx = b1.vx - b2.vx;
+        const ky = b1.vy - b2.vy;
+        const p = kx * nx + ky * ny;
+
+        // Bounce if moving towards each other
+        if (p > 0) {
+          b1.vx -= p * nx;
+          b1.vy -= p * ny;
+          b2.vx += p * nx;
+          b2.vy += p * ny;
+        }
+
+        // Positional separation to prevent overlapping/sticking
+        const overlap = (minDist - dist) / 2;
+        b1.x -= overlap * nx;
+        b1.y -= overlap * ny;
+        b2.x += overlap * nx;
+        b2.y += overlap * ny;
+      }
+    }
+  }
+
+  // 3. Render Positions
+  balls.forEach(ball => {
     ball.el.style.transform = `translate3d(${ball.x}px, ${ball.y}px, 0)`;
   });
 
@@ -1370,7 +1427,7 @@ function setupListeners() {
   if (audioFileInput) audioFileInput.addEventListener("change", handleLocalFileUpload);
   if (drawerAudioFileInput) drawerAudioFileInput.addEventListener("change", handleLocalFileUpload);
 
-  // Global Zen Trigger (Double Tap / Double Click)
+  // Global Zen Trigger
   let lastTouchTime = 0;
   function handleZenTrigger(e) {
     if (

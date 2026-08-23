@@ -81,7 +81,6 @@ let supabaseTracks = [];
 let localTracks = [];
 let playlist = [...baseTracks];
 let currentTrackIndex = 0;
-let isPlaying = false;
 let isShuffle = false;
 let isRepeat = false;
 let isZenMode = false;
@@ -502,7 +501,7 @@ function initRainAudio() {
 }
 
 // ========================================================
-// TRACK LOADER, WAKE-LOCK & BACKGROUND FIX
+// TRACK LOADER, WAKE-LOCK & BACKGROUND CONTINUOUS PLAYBACK
 // ========================================================
 async function requestWakeLock() {
   if ('wakeLock' in navigator) {
@@ -520,7 +519,7 @@ async function requestWakeLock() {
 }
 
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible' && isPlaying) {
+  if (document.visibilityState === 'visible' && audio && !audio.paused) {
     requestWakeLock();
   }
 });
@@ -541,9 +540,8 @@ function loadTrack(index) {
     }
   }
 
+  // Setting src directly without extra .load() resets currentTime cleanly without abort errors
   audio.src = track.src;
-  audio.load();
-  audio.currentTime = 0;
 
   updateHeartButton();
   updateMediaSessionMetadata(track);
@@ -551,7 +549,7 @@ function loadTrack(index) {
 
 function triggerFadeTransition(actionCallback) {
   // If app is running in background or screen is off, execute directly to avoid stalled intervals
-  if (!audio || !isPlaying || isFading || document.visibilityState === 'hidden') {
+  if (!audio || audio.paused || isFading || document.visibilityState === 'hidden') {
     actionCallback();
     return;
   }
@@ -620,34 +618,28 @@ function playTrack() {
 
   requestWakeLock();
 
-  audio.play().then(() => {
-    isPlaying = true;
-    if (playIcon) playIcon.className = "ri-pause-fill";
-    updateMediaSessionMetadata(playlist[currentTrackIndex]);
-    if ("mediaSession" in navigator) {
-      navigator.mediaSession.playbackState = "playing";
-    }
-  }).catch((err) => {
-    console.warn("Playback interaction needed:", err);
-  });
+  const playPromise = audio.play();
+  if (playPromise !== undefined) {
+    playPromise.then(() => {
+      updateMediaSessionMetadata(playlist[currentTrackIndex]);
+    }).catch((err) => {
+      console.warn("Playback prevented / loading:", err);
+    });
+  }
 }
 
 function pauseTrack() {
   if (!audio) return;
   audio.pause();
-  isPlaying = false;
-  if (playIcon) playIcon.className = "ri-play-fill";
-  if ("mediaSession" in navigator) {
-    navigator.mediaSession.playbackState = "paused";
-  }
 }
 
 function togglePlay() {
-  if (playlist.length === 0) return;
-  if (isPlaying) {
-    pauseTrack();
-  } else {
+  if (playlist.length === 0 || !audio) return;
+  // Always query native audio state directly to avoid desync
+  if (audio.paused) {
     playTrack();
+  } else {
+    pauseTrack();
   }
 }
 
@@ -1395,23 +1387,29 @@ function setupListeners() {
 
   if (audio) {
     audio.addEventListener("timeupdate", updateProgress);
-    
-    // Background Playback Fix: Direct transition without stalling intervals
-    audio.addEventListener("ended", () => {
-      setTimeout(() => {
-        if (isRepeat) {
-          audio.currentTime = 0;
-          playTrack();
-        } else {
-          nextTrack();
-        }
-      }, 150);
+
+    // Native synchronization handlers - 100% immune to UI freeze/desync
+    audio.addEventListener("play", () => {
+      if (playIcon) playIcon.className = "ri-pause-fill";
+      if ("mediaSession" in navigator) {
+        navigator.mediaSession.playbackState = "playing";
+      }
     });
 
     audio.addEventListener("pause", () => {
-      if (audio.currentTime !== audio.duration && !isFading) {
-        isPlaying = false;
-        if (playIcon) playIcon.className = "ri-play-fill";
+      if (playIcon) playIcon.className = "ri-play-fill";
+      if ("mediaSession" in navigator) {
+        navigator.mediaSession.playbackState = "paused";
+      }
+    });
+    
+    // Background Continuous Playback (Synchronous invocation)
+    audio.addEventListener("ended", () => {
+      if (isRepeat) {
+        audio.currentTime = 0;
+        playTrack();
+      } else {
+        nextTrack();
       }
     });
   }

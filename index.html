@@ -6,7 +6,7 @@
   
   <title>Vibe Music Player - Aesthetic Indian Lo-Fi & Retro Player</title>
   <meta name="title" content="Vibe Music Player - Aesthetic Indian Lo-Fi & Retro Player">
-  <meta name="description" content="Aesthetic Indian Tapri & Lo-Fi retro music player with dynamic moods, rain sound synthesizer, zen mode, custom wallpapers, and cloud synced tracks.">
+  <meta name="description" content="Aesthetic Indian Tapri & Lo-Fi retro music player with dynamic moods, rain sound synthesizer, zen mode, custom wallpapers, arcade game and cloud synced tracks.">
   <meta name="author" content="Aditya Kushal">
 
   <meta property="og:type" content="website">
@@ -31,12 +31,12 @@
 </head>
 <body class="mood-sunset">
 
-  <!-- Background & Weather -->
+  <!-- Background & Weather Layer -->
   <div class="app-background" id="app-background"></div>
   <div class="scrim-overlay"></div>
   <canvas id="weather-canvas"></canvas>
 
-  <!-- Top Action Container (Mood Quick Toggle, Zen & In-App Sync) -->
+  <!-- Top Action Container (Mood, Zen, Game & Sync) -->
   <div class="scene-switcher-container">
     <button class="scene-btn" id="mood-toggle-btn" title="Click to cycle Mood">
       <i class="ri-sun-cloudy-line" id="mood-icon"></i>
@@ -45,6 +45,10 @@
     <button class="scene-btn zen-btn" id="zen-toggle-btn" title="Zen Mode (Hide UI) - Shortcut: Z">
       <i class="ri-focus-3-line"></i>
       <span>Zen</span>
+    </button>
+    <button class="scene-btn arcade-btn" id="arcade-toggle-btn" title="Arcade Pong Game Mode">
+      <i class="ri-gamepad-line"></i>
+      <span>Game</span>
     </button>
     <button class="scene-btn refresh-btn" id="app-refresh-btn" title="Check Updates & Sync App">
       <i class="ri-refresh-line" id="refresh-icon"></i>
@@ -64,22 +68,22 @@
   </button>
 
   <!-- Ball 3: Quick Local Audio Upload -->
-  <button class="bounce-ball" id="quick-upload-btn" title="Add Local Audio">
+  <button class="bounce-ball" id="quick-upload-btn" title="Add Local Audio (Saved Forever)">
     <i class="ri-folder-music-fill"></i>
   </button>
   <input type="file" id="audio-file-input" accept="audio/*" multiple hidden>
 
-  <!-- Draggable Volume Pill -->
+  <!-- Transparent Draggable Volume Pill (Acts as Paddle in Game Mode) -->
   <div class="draggable-volume-box" id="draggable-volume" title="Drag anywhere!">
     <i class="ri-volume-up-line" id="volume-icon" title="Mute/Unmute"></i>
     <input type="range" id="volume-slider" min="0" max="1" step="0.01" value="1">
   </div>
 
-  <!-- Main Player Container (Supports Left/Right Swipe on Touch) -->
+  <!-- Main Player Container -->
   <main class="player-container" id="player-container">
     <div class="player-content">
       
-      <!-- Track Meta -->
+      <!-- Track Meta Section -->
       <section class="track-meta">
         <div class="title-like-row">
           <h1 class="track-title" id="track-title">Loading Track...</h1>
@@ -90,7 +94,7 @@
         <p class="track-artist" id="track-artist">My Favourite Artist</p>
       </section>
 
-      <!-- Progress / Seek Bar -->
+      <!-- Progress / Seek Bar Section -->
       <section class="progress-section">
         <div class="seek-container" id="seek-container">
           <div class="seek-bar" id="seek-bar">
@@ -104,8 +108,8 @@
         </div>
       </section>
 
-      <!-- Music Controls -->
-      <section class="controls-section">
+      <!-- Music Controls Section -->
+      <section class="controls-section" id="controls-section">
         <button class="ctrl-btn icon-only" id="shuffle-btn" title="Shuffle">
           <i class="ri-shuffle-line"></i>
         </button>
@@ -126,19 +130,17 @@
     </div>
   </main>
 
-  <!-- Shared Drawer Backdrop -->
+  <!-- Shared Backdrop for Drawers -->
   <div class="drawer-backdrop" id="drawer-backdrop"></div>
 
-  <!-- ============================================== -->
-  <!-- 1. SONGS & PLAYLIST DRAWER (BALL 1)            -->
-  <!-- ============================================== -->
+  <!-- 1. SONGS & PLAYLIST DRAWER (BALL 1) -->
   <aside class="playlist-drawer" id="playlist-drawer">
     <div class="drawer-handle"></div>
     
     <div class="drawer-header">
       <div>
         <h3>Songs & Playlists</h3>
-        <p>Curated vibes & cloud sync</p>
+        <p>Edit Info, Local Storage & Cloud Sync</p>
       </div>
       <button class="close-drawer-btn" id="close-drawer-btn">
         <i class="ri-close-line"></i>
@@ -160,13 +162,13 @@
       <input type="text" id="playlist-search-input" placeholder="Search track or artist...">
     </div>
 
-    <!-- Playlist Tabs -->
+    <!-- Playlist Filter Tabs -->
     <div class="playlist-tabs">
       <button class="tab-btn active" id="tab-all-btn">All Tracks</button>
       <button class="tab-btn" id="tab-liked-btn"><i class="ri-heart-fill"></i> Liked (<span id="liked-count">0</span>)</button>
     </div>
 
-    <!-- Dual Upload Section -->
+    <!-- Dual Upload Cards -->
     <div class="dual-upload-container">
       <label for="main-audio-input" class="upload-action-card global" id="btn-upload-main">
         <i class="ri-cloud-upload-fill"></i>
@@ -181,7 +183,7 @@
         <i class="ri-hard-drive-2-fill"></i>
         <div class="upload-text">
           <strong>Upload Local</strong>
-          <small>Only on this device</small>
+          <small>Permanent on this device</small>
         </div>
       </label>
       <input type="file" id="drawer-audio-file-input" accept="audio/*" multiple hidden>
@@ -191,9 +193,7 @@
     <div class="playlist-scroll-list" id="playlist-scroll-list"></div>
   </aside>
 
-  <!-- ============================================== -->
-  <!-- 2. THEME & ATMOSPHERE DRAWER (BALL 2)          -->
-  <!-- ============================================== -->
+  <!-- 2. THEME & ATMOSPHERE DRAWER (BALL 2) -->
   <aside class="playlist-drawer theme-drawer" id="theme-drawer">
     <div class="drawer-handle"></div>
     
@@ -216,9 +216,8 @@
         <button class="grid-btn bg-btn" data-bg="2">Wallpaper 3</button>
         <button class="grid-btn bg-btn" data-bg="3">Wallpaper 4</button>
         
-        <!-- Custom Wallpaper Upload Button (JPG, PNG, WEBP, GIF, AVIF) -->
         <label for="custom-bg-input" class="grid-btn bg-btn" id="custom-bg-label" style="grid-column: span 2; cursor: pointer;">
-          <i class="ri-image-add-line"></i> <span id="custom-bg-text">+ Custom Wallpaper (Any format)</span>
+          <i class="ri-image-add-line"></i> <span id="custom-bg-text">+ Custom Wallpaper (JPG, PNG, WEBP...)</span>
         </label>
         <input type="file" id="custom-bg-input" accept="image/*" hidden>
       </div>
@@ -254,6 +253,7 @@
     </div>
   </div>
 
+  <!-- Primary Audio Node (Ping-Pong node audioB will be created dynamically) -->
   <audio id="main-audio" preload="auto"></audio>
 
   <script>

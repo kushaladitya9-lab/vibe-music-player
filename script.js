@@ -76,21 +76,88 @@ const moods = [
   { name: "Midnight", cls: "mood-night", icon: "ri-moon-clear-line", weather: "stars" }
 ];
 
+// ========================================================
+// 2. INDEXEDDB ENGINE (PERMANENT LOCAL AUDIO STORAGE)
+// ========================================================
+const IDB_NAME = "VibeMusicDB";
+const IDB_VERSION = 1;
+const IDB_STORE = "local_tracks";
+
+function openLocalDB() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(IDB_NAME, IDB_VERSION);
+    request.onupgradeneeded = (e) => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains(IDB_STORE)) {
+        db.createObjectStore(IDB_STORE, { keyPath: "id" });
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+async function saveLocalTrackToDB(track) {
+  try {
+    const db = await openLocalDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(IDB_STORE, "readwrite");
+      const store = tx.objectStore(IDB_STORE);
+      store.put(track);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch (err) {
+    console.warn("IndexedDB save error:", err);
+  }
+}
+
+async function getLocalTracksFromDB() {
+  try {
+    const db = await openLocalDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(IDB_STORE, "readonly");
+      const store = tx.objectStore(IDB_STORE);
+      const req = store.getAll();
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = () => reject(req.error);
+    });
+  } catch (err) {
+    console.warn("IndexedDB read error:", err);
+    return [];
+  }
+}
+
+async function deleteLocalTrackFromDB(id) {
+  try {
+    const db = await openLocalDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(IDB_STORE, "readwrite");
+      const store = tx.objectStore(IDB_STORE);
+      store.delete(id);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch (err) {
+    console.warn("IndexedDB delete error:", err);
+  }
+}
+
 // State Management
 let supabaseTracks = [];
 let localTracks = [];
 let playlist = [...baseTracks];
 let currentTrackIndex = 0;
-let nextPreloadedIndex = -1;
 let isShuffle = false;
 let isRepeat = false;
 let isZenMode = false;
 let isFading = false;
 let wakeLock = null;
 
-// Ping-Pong Dual Audio Nodes
+// Ping-Pong Dual Audio Engine Nodes
 let audioA, audioB;
 let activeAudio, standbyAudio;
+let nextPreloadedIndex = -1;
 
 let currentTab = "all"; 
 let activeCustomPlaylistName = null;
@@ -113,28 +180,45 @@ let currentTimeEl, durationTimeEl, drawerBackdrop, playlistDrawer, themeDrawer;
 let playlistScrollList, trackCountBadge, audioFileInput, drawerAudioFileInput;
 let mainAudioInput, uploadModal, uploadStatusText;
 let mainHeartBtn, mainHeartIcon, likedCountBadge;
-let moodToggleBtn, moodIcon, moodLabel, zenToggleBtn, appRefreshBtn, refreshIcon;
+let moodToggleBtn, moodIcon, moodLabel, zenToggleBtn, arcadeToggleBtn, appRefreshBtn, refreshIcon;
 let searchInput, tabAllBtn, tabLikedBtn, rainSlider;
 let volumeSlider, volumeIcon, draggableVolume;
 let createPlaylistBtn, customPlaylistsContainer;
 let customBgInput, customBgLabel, customBgText;
-let playerContainer;
+let playerContainer, controlsSection;
 
+// Bouncing Balls (Normal Mode)
+let btnDrawer, btnTheme, btnUpload;
 let balls = [];
+
+// ========================================================
+// 🕹️ ARCADE MODE (PROGRESSIVE COMPONENT PONG)
+// ========================================================
+let isArcadeMode = false;
+let arcadeScore = 0;
+let arcadeLevel = 1;
+let globalHighScore = 0;
+let globalHighScoreNickname = "Master";
+let personalHighScore = parseInt(localStorage.getItem("vibe_arcade_personal_hs") || "0");
+let arcadeNickname = localStorage.getItem("vibe_arcade_nickname") || null;
+
+const arcadeGravity = 0.09;
+let arcadeBalls = [];
+let scoreOverlay, gameMsgOverlay, nicknameModal;
 
 // ========================================================
 // INITIALIZATION
 // ========================================================
-function initPlayer() {
+async function initPlayer() {
   audioA = document.getElementById("main-audio");
   audioB = new Audio();
   audioB.preload = "auto";
-
   activeAudio = audioA;
   standbyAudio = audioB;
 
   trackTitle = document.getElementById("track-title");
   trackArtist = document.getElementById("track-artist");
+  controlsSection = document.getElementById("controls-section");
 
   playBtn = document.getElementById("play-btn");
   playIcon = document.getElementById("play-icon");
@@ -167,6 +251,7 @@ function initPlayer() {
   moodIcon = document.getElementById("mood-icon");
   moodLabel = document.getElementById("mood-label");
   zenToggleBtn = document.getElementById("zen-toggle-btn");
+  arcadeToggleBtn = document.getElementById("arcade-toggle-btn");
   appRefreshBtn = document.getElementById("app-refresh-btn");
   refreshIcon = document.getElementById("refresh-icon");
 
@@ -189,6 +274,10 @@ function initPlayer() {
   customBgText = document.getElementById("custom-bg-text");
   playerContainer = document.getElementById("player-container");
 
+  btnDrawer = document.getElementById("open-drawer-btn");
+  btnTheme = document.getElementById("open-theme-btn");
+  btnUpload = document.getElementById("quick-upload-btn");
+
   if (currentBgIndex === "custom" && customBgData) {
     applyCustomBackground(customBgData);
   } else {
@@ -197,33 +286,41 @@ function initPlayer() {
 
   applyMood(currentMoodIndex, false);
   updateLikedCount();
+  
+  // 1. Load Permanent Local Songs from IndexedDB
+  await loadSavedLocalSongs();
+
+  // 2. Setup Playlist & Player
   rebuildPlaylist();
   loadTrack(currentTrackIndex);
   setupListeners();
+  setupMediaSession();
   setupDualAudioListeners(audioA);
   setupDualAudioListeners(audioB);
-  setupMediaSession();
   setupDraggableVolume();
   setupBouncingBalls();
   initWeatherCanvas();
+  initArcadeUI();
   renderCustomPlaylists();
   setupSwipeGestures();
 
   fetchSupabaseSongs();
 }
 
-// ========================================================
-// ZEN MODE ENGINE
-// ========================================================
-function toggleZenMode() {
-  isZenMode = !isZenMode;
-  document.body.classList.toggle("zen-mode", isZenMode);
-}
-
-function exitZenMode() {
-  if (isZenMode) {
-    isZenMode = false;
-    document.body.classList.remove("zen-mode");
+// Load Persistent Local Songs
+async function loadSavedLocalSongs() {
+  const dbTracks = await getLocalTracksFromDB();
+  if (dbTracks && dbTracks.length > 0) {
+    localTracks = dbTracks.map(item => {
+      const blobUrl = URL.createObjectURL(item.blob);
+      return {
+        id: item.id,
+        title: item.title,
+        artist: item.artist || FALLBACK_ARTIST,
+        src: blobUrl,
+        isLocal: true
+      };
+    });
   }
 }
 
@@ -239,7 +336,7 @@ async function fetchSupabaseSongs() {
       .order('created_at', { ascending: true });
 
     if (error) {
-      console.warn("Supabase notice:", error.message);
+      console.warn("Supabase music notice:", error.message);
       return;
     }
 
@@ -326,191 +423,6 @@ function showUploadModal(msg) {
 
 function hideUploadModal() {
   if (uploadModal) uploadModal.classList.remove("active");
-}
-
-// ========================================================
-// BACKGROUND & CUSTOM WALLPAPER ENGINE
-// ========================================================
-function applyBackground(index) {
-  if (index < 0 || index >= backgrounds.length) index = 0;
-  currentBgIndex = String(index);
-  localStorage.setItem("vibe_bg_idx", currentBgIndex);
-
-  const bg = backgrounds[index];
-  document.documentElement.style.setProperty('--bg-desktop', `url('${bg.desktop}')`);
-  document.documentElement.style.setProperty('--bg-mobile', `url('${bg.mobile}')`);
-
-  document.querySelectorAll(".bg-btn").forEach((btn, i) => {
-    btn.classList.toggle("active", i === index);
-  });
-  if (customBgLabel) customBgLabel.classList.remove("active");
-}
-
-function applyCustomBackground(dataUrl) {
-  currentBgIndex = "custom";
-  customBgData = dataUrl;
-  localStorage.setItem("vibe_bg_idx", "custom");
-  try {
-    localStorage.setItem("vibe_custom_bg", dataUrl);
-  } catch (err) {
-    console.warn("Storage quota full, using image for session only");
-  }
-
-  document.documentElement.style.setProperty('--bg-desktop', `url('${dataUrl}')`);
-  document.documentElement.style.setProperty('--bg-mobile', `url('${dataUrl}')`);
-
-  document.querySelectorAll(".bg-btn").forEach(btn => btn.classList.remove("active"));
-  if (customBgLabel) customBgLabel.classList.add("active");
-  if (customBgText) customBgText.textContent = "Custom Wallpaper (Active)";
-}
-
-function handleCustomBgUpload(e) {
-  const file = e.target.files[0];
-  if (!file) return;
-
-  const reader = new FileReader();
-  reader.onload = (event) => {
-    const dataUrl = event.target.result;
-    applyCustomBackground(dataUrl);
-    alert("Custom wallpaper applied successfully!");
-  };
-  reader.readAsDataURL(file);
-}
-
-// ========================================================
-// ATMOSPHERIC MOODS
-// ========================================================
-function applyMood(index, userExplicitChoice = true) {
-  if (index < 0 || index >= moods.length) index = 0;
-  moods.forEach(m => document.body.classList.remove(m.cls));
-
-  currentMoodIndex = index;
-  localStorage.setItem("vibe_mood_idx", currentMoodIndex);
-
-  const mood = moods[currentMoodIndex];
-  document.body.classList.add(mood.cls);
-
-  if (moodLabel) moodLabel.textContent = mood.name;
-  if (moodIcon) moodIcon.className = mood.icon;
-
-  const moodBtns = document.querySelectorAll(".mood-btn");
-  moodBtns.forEach((btn, i) => {
-    btn.classList.toggle("active", i === currentMoodIndex);
-  });
-
-  if (userExplicitChoice) {
-    if (mood.weather === "rain" && rainSlider) {
-      if (!isWebAudioInit) initRainAudio();
-      if (rainSlider.value == 0) {
-        rainSlider.value = 0.4;
-        if (rainGainNode) rainGainNode.gain.value = 0.4;
-      }
-    } else if (rainSlider && rainGainNode && rainSlider.value > 0) {
-      rainSlider.value = 0;
-      rainGainNode.gain.value = 0;
-    }
-  }
-}
-
-function cycleMood() {
-  const nextIdx = (currentMoodIndex + 1) % moods.length;
-  applyMood(nextIdx, true);
-}
-
-// ========================================================
-// DRAGGABLE VOLUME BAR
-// ========================================================
-function setupDraggableVolume() {
-  if (!draggableVolume) return;
-
-  let volCurrentX = Math.max(20, window.innerWidth - 210);
-  let volCurrentY = Math.max(20, window.innerHeight - 80);
-  
-  let startX = 0, startY = 0;
-  let isDragging = false;
-
-  draggableVolume.style.transform = `translate3d(${volCurrentX}px, ${volCurrentY}px, 0)`;
-
-  function onPointerDown(e) {
-    if (e.target === volumeSlider) return;
-    isDragging = true;
-    startX = e.clientX - volCurrentX;
-    startY = e.clientY - volCurrentY;
-    draggableVolume.setPointerCapture(e.pointerId);
-  }
-
-  function onPointerMove(e) {
-    if (!isDragging) return;
-    let newX = e.clientX - startX;
-    let newY = e.clientY - startY;
-
-    const maxX = window.innerWidth - (draggableVolume.offsetWidth || 180) - 10;
-    const maxY = window.innerHeight - (draggableVolume.offsetHeight || 42) - 10;
-
-    newX = Math.max(10, Math.min(newX, maxX));
-    newY = Math.max(10, Math.min(newY, maxY));
-
-    volCurrentX = newX;
-    volCurrentY = newY;
-    draggableVolume.style.transform = `translate3d(${volCurrentX}px, ${volCurrentY}px, 0)`;
-  }
-
-  function onPointerUp(e) {
-    if (!isDragging) return;
-    isDragging = false;
-    try { draggableVolume.releasePointerCapture(e.pointerId); } catch(err) {}
-  }
-
-  draggableVolume.addEventListener("pointerdown", onPointerDown);
-  window.addEventListener("pointermove", onPointerMove);
-  window.addEventListener("pointerup", onPointerUp);
-}
-
-// ========================================================
-// RAIN SYNTHESIZER
-// ========================================================
-function initRainAudio() {
-  if (isWebAudioInit) return;
-  try {
-    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-    audioCtx = new AudioContextClass();
-
-    const bufferSize = audioCtx.sampleRate * 2;
-    const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
-    const output = noiseBuffer.getChannelData(0);
-    let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
-    for (let i = 0; i < bufferSize; i++) {
-      const white = Math.random() * 2 - 1;
-      b0 = 0.99886 * b0 + white * 0.0555179;
-      b1 = 0.99332 * b1 + white * 0.0750759;
-      b2 = 0.96900 * b2 + white * 0.1538520;
-      b3 = 0.86650 * b3 + white * 0.3104856;
-      b4 = 0.55000 * b4 + white * 0.5329522;
-      b5 = -0.7616 * b5 - white * 0.0168980;
-      output[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362) * 0.11;
-      b6 = white * 0.115926;
-    }
-
-    const rainSource = audioCtx.createBufferSource();
-    rainSource.buffer = noiseBuffer;
-    rainSource.loop = true;
-
-    const rainFilter = audioCtx.createBiquadFilter();
-    rainFilter.type = "lowpass";
-    rainFilter.frequency.value = 1000;
-
-    rainGainNode = audioCtx.createGain();
-    rainGainNode.gain.value = 0;
-
-    rainSource.connect(rainFilter);
-    rainFilter.connect(rainGainNode);
-    rainGainNode.connect(audioCtx.destination);
-    rainSource.start();
-
-    isWebAudioInit = true;
-  } catch (err) {
-    console.warn("Rain audio init waiting:", err);
-  }
 }
 
 // ========================================================
@@ -611,7 +523,7 @@ function playTrack() {
       updateMediaSessionMetadata(playlist[currentTrackIndex]);
       preloadStandbyTrack();
     }).catch((err) => {
-      console.warn("Playback prevented / interaction needed:", err);
+      console.warn("Playback interaction needed:", err);
     });
   }
 }
@@ -632,9 +544,11 @@ function togglePlay() {
 
 function nextTrack() {
   standbyAudio.pause();
-  const nextIdx = (nextPreloadedIndex !== -1 && !isShuffle) ? nextPreloadedIndex : getNextTrackIndex();
-  loadTrack(nextIdx);
-  playTrack();
+  triggerFadeTransition(() => {
+    const nextIdx = (nextPreloadedIndex !== -1 && !isShuffle) ? nextPreloadedIndex : getNextTrackIndex();
+    loadTrack(nextIdx);
+    playTrack();
+  });
 }
 
 function prevTrack() {
@@ -643,23 +557,26 @@ function prevTrack() {
     return;
   }
 
-  let activePool = playlist;
-  if (currentTab === "liked") {
-    activePool = playlist.filter(t => likedTrackIds.includes(t.id));
-  } else if (currentTab === "custom" && activeCustomPlaylistName) {
-    const allowedIds = customPlaylists[activeCustomPlaylistName] || [];
-    activePool = playlist.filter(t => allowedIds.includes(t.id));
-  }
+  standbyAudio.pause();
+  triggerFadeTransition(() => {
+    let activePool = playlist;
+    if (currentTab === "liked") {
+      activePool = playlist.filter(t => likedTrackIds.includes(t.id));
+    } else if (currentTab === "custom" && activeCustomPlaylistName) {
+      const allowedIds = customPlaylists[activeCustomPlaylistName] || [];
+      activePool = playlist.filter(t => allowedIds.includes(t.id));
+    }
 
-  if (activePool.length === 0) activePool = playlist;
+    if (activePool.length === 0) activePool = playlist;
 
-  const currentInPoolIdx = activePool.findIndex(t => t.id === playlist[currentTrackIndex].id);
-  const prevInPoolIdx = (currentInPoolIdx - 1 + activePool.length) % activePool.length;
-  const prevTrackObj = activePool[prevInPoolIdx];
-  const prevIdx = playlist.findIndex(t => t.id === prevTrackObj.id);
+    const currentInPoolIdx = activePool.findIndex(t => t.id === playlist[currentTrackIndex].id);
+    const prevInPoolIdx = (currentInPoolIdx - 1 + activePool.length) % activePool.length;
+    const prevTrackObj = activePool[prevInPoolIdx];
+    const prevIdx = playlist.findIndex(t => t.id === prevTrackObj.id);
 
-  loadTrack(prevIdx);
-  playTrack();
+    loadTrack(prevIdx);
+    playTrack();
+  });
 }
 
 function triggerFadeTransition(actionCallback) {
@@ -727,7 +644,6 @@ function setupDualAudioListeners(audioNode) {
     }
   });
 
-  // Seamless Ping-Pong Swap on Track End
   audioNode.addEventListener("ended", (e) => {
     if (e.target !== activeAudio) return;
 
@@ -747,7 +663,6 @@ function setupDualAudioListeners(audioNode) {
     updateHeartButton();
     updateMediaSessionMetadata(track);
 
-    // Instant playback from pre-buffered standby node
     playTrack();
     preloadStandbyTrack();
   });
@@ -825,6 +740,12 @@ function updateLikedCount() {
   }
 }
 
+function updateTrackCount() {
+  if (trackCountBadge) {
+    trackCountBadge.textContent = playlist.length;
+  }
+}
+
 // Edit Track Metadata
 function editTrackInfo(trackId) {
   const track = playlist.find(t => t.id === trackId);
@@ -855,306 +776,7 @@ function editTrackInfo(trackId) {
   alert("Track details updated!");
 }
 
-// ========================================================
-// MOBILE SWIPE GESTURES
-// ========================================================
-function setupSwipeGestures() {
-  let touchStartX = 0;
-  let touchStartY = 0;
-
-  window.addEventListener("touchstart", (e) => {
-    touchStartX = e.touches[0].clientX;
-    touchStartY = e.touches[0].clientY;
-  }, { passive: true });
-
-  window.addEventListener("touchend", (e) => {
-    if (
-      e.target.closest("#volume-slider") || 
-      e.target.closest("#seek-container") ||
-      e.target.closest(".playlist-drawer") ||
-      e.target.closest("button")
-    ) {
-      return;
-    }
-
-    const touchEndX = e.changedTouches[0].clientX;
-    const touchEndY = e.changedTouches[0].clientY;
-    const diffX = touchEndX - touchStartX;
-    const diffY = touchEndY - touchStartY;
-
-    if (Math.abs(diffX) > 60 && Math.abs(diffX) > Math.abs(diffY) * 1.5) {
-      if (diffX < 0) {
-        triggerFadeTransition(nextTrack);
-      } else {
-        triggerFadeTransition(prevTrack);
-      }
-    }
-  });
-}
-
-// ========================================================
-// CUSTOM PLAYLISTS SYSTEM
-// ========================================================
-function renderCustomPlaylists() {
-  if (!customPlaylistsContainer) return;
-  customPlaylistsContainer.innerHTML = "";
-
-  const playlistNames = Object.keys(customPlaylists);
-
-  playlistNames.forEach(name => {
-    const wrapper = document.createElement("div");
-    wrapper.style.cssText = `
-      display: inline-flex; align-items: center;
-      background: ${activeCustomPlaylistName === name ? "rgba(255, 222, 89, 0.18)" : "rgba(255,255,255,0.06)"};
-      border: 1px solid ${activeCustomPlaylistName === name ? "var(--accent-gold)" : "rgba(255,255,255,0.12)"};
-      border-radius: 8px; overflow: hidden; margin-right: 5px; flex-shrink: 0;
-    `;
-
-    const chip = document.createElement("button");
-    chip.style.cssText = "padding: 5px 8px; font-size: 0.72rem; white-space: nowrap; border: none; background: transparent; color: #fff; cursor: pointer; display: flex; align-items: center; gap: 4px; font-weight: 600;";
-    chip.innerHTML = `<i class="ri-play-list-line"></i> ${name} (${customPlaylists[name].length})`;
-
-    chip.addEventListener("click", () => {
-      activeCustomPlaylistName = name;
-      currentTab = "custom";
-      if (tabAllBtn) tabAllBtn.classList.remove("active");
-      if (tabLikedBtn) tabLikedBtn.classList.remove("active");
-      renderCustomPlaylists();
-      renderPlaylist();
-      preloadStandbyTrack();
-    });
-
-    const delBtn = document.createElement("button");
-    delBtn.title = `Delete playlist "${name}"`;
-    delBtn.style.cssText = "background: transparent; border: none; color: rgba(255,255,255,0.45); padding: 5px 6px; cursor: pointer; font-size: 0.82rem; display: flex; align-items: center;";
-    delBtn.innerHTML = `<i class="ri-close-line"></i>`;
-
-    delBtn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      deleteCustomPlaylist(name);
-    });
-
-    wrapper.appendChild(chip);
-    wrapper.appendChild(delBtn);
-    customPlaylistsContainer.appendChild(wrapper);
-  });
-}
-
-function createNewPlaylist() {
-  const name = prompt("Enter new custom playlist name:");
-  if (!name || !name.trim()) return;
-  const cleanName = name.trim();
-
-  if (customPlaylists[cleanName]) {
-    alert("Playlist already exists!");
-    return;
-  }
-
-  customPlaylists[cleanName] = [];
-  localStorage.setItem("vibe_custom_playlists", JSON.stringify(customPlaylists));
-  renderCustomPlaylists();
-  alert(`Playlist "${cleanName}" created!`);
-}
-
-function deleteCustomPlaylist(name) {
-  if (confirm(`Delete playlist "${name}"?`)) {
-    delete customPlaylists[name];
-    localStorage.setItem("vibe_custom_playlists", JSON.stringify(customPlaylists));
-    if (activeCustomPlaylistName === name) {
-      activeCustomPlaylistName = null;
-      currentTab = "all";
-      if (tabAllBtn) tabAllBtn.classList.add("active");
-    }
-    renderCustomPlaylists();
-    renderPlaylist();
-    preloadStandbyTrack();
-  }
-}
-
-function addSongToCustomPlaylist(trackId, playlistName) {
-  if (!customPlaylists[playlistName]) return;
-  if (!customPlaylists[playlistName].includes(trackId)) {
-    customPlaylists[playlistName].push(trackId);
-    localStorage.setItem("vibe_custom_playlists", JSON.stringify(customPlaylists));
-    renderCustomPlaylists();
-    alert(`Added to "${playlistName}"!`);
-  } else {
-    alert(`Song is already in "${playlistName}"!`);
-  }
-}
-
-function removeSongFromCustomPlaylist(trackId, playlistName) {
-  if (!customPlaylists[playlistName]) return;
-  customPlaylists[playlistName] = customPlaylists[playlistName].filter(id => id !== trackId);
-  localStorage.setItem("vibe_custom_playlists", JSON.stringify(customPlaylists));
-  renderCustomPlaylists();
-  renderPlaylist();
-}
-
-// Playlist Scroll Render
-function renderPlaylist() {
-  if (!playlistScrollList) return;
-  playlistScrollList.innerHTML = "";
-
-  const query = searchInput ? searchInput.value.toLowerCase().trim() : "";
-
-  let targetTracks = playlist;
-  if (currentTab === "liked") {
-    targetTracks = playlist.filter(t => likedTrackIds.includes(t.id));
-  } else if (currentTab === "custom" && activeCustomPlaylistName) {
-    const allowedIds = customPlaylists[activeCustomPlaylistName] || [];
-    targetTracks = playlist.filter(t => allowedIds.includes(t.id));
-  }
-
-  if (targetTracks.length === 0) {
-    const emptyMsg = document.createElement("p");
-    emptyMsg.style.cssText = "text-align: center; color: rgba(255,255,255,0.4); font-size: 0.85rem; padding: 25px 0;";
-    emptyMsg.textContent = currentTab === "custom" ? "No songs in this playlist. Add some from 'All Tracks'!" : "No songs found.";
-    playlistScrollList.appendChild(emptyMsg);
-    return;
-  }
-
-  targetTracks.forEach((track) => {
-    const originalIndex = playlist.findIndex(t => t.id === track.id);
-    if (originalIndex === -1) return;
-
-    const matchTitle = track.title.toLowerCase().includes(query);
-    const matchArtist = (track.artist || "").toLowerCase().includes(query);
-    if (query && !matchTitle && !matchArtist) return;
-
-    const isLiked = likedTrackIds.includes(track.id);
-    const displayArtist = (!track.artist || track.artist.trim() === "") ? FALLBACK_ARTIST : track.artist;
-
-    let actionBtnHtml = '';
-    if (currentTab === "custom" && activeCustomPlaylistName) {
-      actionBtnHtml = `
-        <button class="item-playlist-remove-btn" title="Remove from playlist" style="background:none; border:none; color:rgba(255,71,87,0.85); cursor:pointer; font-size:1.1rem; padding:4px;">
-          <i class="ri-indeterminate-circle-line"></i>
-        </button>
-      `;
-    } else {
-      actionBtnHtml = `
-        <button class="item-playlist-add-btn" title="Add to Custom Playlist" style="background:none; border:none; color:rgba(255,255,255,0.6); cursor:pointer; font-size:1rem; padding:4px;">
-          <i class="ri-add-box-line"></i>
-        </button>
-      `;
-    }
-
-    const item = document.createElement("div");
-    item.className = `playlist-item ${originalIndex === currentTrackIndex ? "active" : ""}`;
-    item.innerHTML = `
-      <div class="playlist-item-info">
-        <div class="item-title">${track.title}</div>
-        <div class="item-artist">${displayArtist}</div>
-      </div>
-      <div class="item-actions">
-        <button class="item-edit-btn" title="Edit Track Info">
-          <i class="ri-edit-line"></i>
-        </button>
-        ${actionBtnHtml}
-        <button class="item-heart-btn ${isLiked ? "liked" : ""}">
-          <i class="${isLiked ? "ri-heart-fill" : "ri-heart-line"}"></i>
-        </button>
-        <i class="ri-volume-up-fill item-indicator"></i>
-      </div>
-    `;
-
-    item.addEventListener("click", (e) => {
-      if (
-        e.target.closest(".item-heart-btn") || 
-        e.target.closest(".item-playlist-add-btn") || 
-        e.target.closest(".item-playlist-remove-btn") ||
-        e.target.closest(".item-edit-btn")
-      ) return;
-      
-      triggerFadeTransition(() => {
-        loadTrack(originalIndex);
-        playTrack();
-      });
-      closeAllDrawers();
-    });
-
-    const editBtn = item.querySelector(".item-edit-btn");
-    if (editBtn) {
-      editBtn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        editTrackInfo(track.id);
-      });
-    }
-
-    if (currentTab === "custom" && activeCustomPlaylistName) {
-      const removeBtn = item.querySelector(".item-playlist-remove-btn");
-      if (removeBtn) {
-        removeBtn.addEventListener("click", (e) => {
-          e.stopPropagation();
-          removeSongFromCustomPlaylist(track.id, activeCustomPlaylistName);
-        });
-      }
-    } else {
-      const addBtn = item.querySelector(".item-playlist-add-btn");
-      if (addBtn) {
-        addBtn.addEventListener("click", (e) => {
-          e.stopPropagation();
-          const pNames = Object.keys(customPlaylists);
-          if (pNames.length === 0) {
-            alert("Please create a custom playlist first using '+ New Playlist'!");
-            return;
-          }
-          const choice = prompt(`Select playlist to add "${track.title}":\n- ${pNames.join("\n- ")}`);
-          if (choice && customPlaylists[choice.trim()]) {
-            addSongToCustomPlaylist(track.id, choice.trim());
-          } else if (choice) {
-            alert("Playlist not found!");
-          }
-        });
-      }
-    }
-
-    const itemHeart = item.querySelector(".item-heart-btn");
-    itemHeart.addEventListener("click", (e) => {
-      e.stopPropagation();
-      const idIdx = likedTrackIds.indexOf(track.id);
-      if (idIdx > -1) {
-        likedTrackIds.splice(idIdx, 1);
-      } else {
-        likedTrackIds.push(track.id);
-      }
-      localStorage.setItem("vibe_liked_songs", JSON.stringify(likedTrackIds));
-      updateHeartButton();
-      updateLikedCount();
-      renderPlaylist();
-    });
-
-    playlistScrollList.appendChild(item);
-  });
-}
-
-function updateTrackCount() {
-  if (trackCountBadge) {
-    trackCountBadge.textContent = playlist.length;
-  }
-}
-
-// Drawer Controls
-function openPlaylistDrawer() {
-  closeAllDrawers();
-  if (playlistDrawer) playlistDrawer.classList.add("active");
-  if (drawerBackdrop) drawerBackdrop.classList.add("active");
-}
-
-function openThemeDrawer() {
-  closeAllDrawers();
-  if (themeDrawer) themeDrawer.classList.add("active");
-  if (drawerBackdrop) drawerBackdrop.classList.add("active");
-}
-
-function closeAllDrawers() {
-  if (playlistDrawer) playlistDrawer.classList.remove("active");
-  if (themeDrawer) themeDrawer.classList.remove("active");
-  if (drawerBackdrop) drawerBackdrop.classList.remove("active");
-}
-
-// Media Session
+// Media Session Setup
 function setupMediaSession() {
   if ("mediaSession" in navigator) {
     navigator.mediaSession.setActionHandler("play", playTrack);
@@ -1175,78 +797,375 @@ function updateMediaSessionMetadata(track) {
   }
 }
 
-// Weather Canvas
-function initWeatherCanvas() {
-  const canvas = document.getElementById("weather-canvas");
-  if (!canvas) return;
-  const ctx = canvas.getContext("2d");
+// ========================================================
+// 3. PERSISTENT LOCAL FILE UPLOAD (INDEXEDDB)
+// ========================================================
+async function handleLocalFileUpload(event) {
+  const files = event.target.files;
+  if (!files || files.length === 0) return;
 
-  function resize() {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+  showUploadModal("Saving songs permanently to device...");
+
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    const cleanTitle = file.name.replace(/\.[^/.]+$/, "");
+    const songId = `local_${Date.now()}_${i}`;
+
+    const trackObj = {
+      id: songId,
+      title: cleanTitle,
+      artist: FALLBACK_ARTIST,
+      blob: file
+    };
+
+    await saveLocalTrackToDB(trackObj);
+
+    const blobUrl = URL.createObjectURL(file);
+    localTracks.push({
+      id: songId,
+      title: cleanTitle,
+      artist: FALLBACK_ARTIST,
+      src: blobUrl,
+      isLocal: true
+    });
   }
-  resize();
-  window.addEventListener("resize", resize);
 
-  const drops = Array.from({ length: 90 }, () => ({
-    x: Math.random() * window.innerWidth,
-    y: Math.random() * window.innerHeight,
-    len: Math.random() * 18 + 12,
-    speed: Math.random() * 8 + 12
-  }));
+  hideUploadModal();
+  rebuildPlaylist();
+  loadTrack(playlist.length - 1);
+  playTrack();
+  closeAllDrawers();
+  event.target.value = "";
+  alert("Local songs saved permanently to this device!");
+}
 
-  const stars = Array.from({ length: 65 }, () => ({
-    x: Math.random() * window.innerWidth,
-    y: Math.random() * (window.innerHeight * 0.6),
-    r: Math.random() * 1.5 + 0.5,
-    alpha: Math.random(),
-    dAlpha: (Math.random() * 0.02 + 0.008) * (Math.random() < 0.5 ? 1 : -1)
-  }));
-
-  function drawWeather() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    const activeWeather = moods[currentMoodIndex].weather;
-
-    if (activeWeather === "rain") {
-      ctx.strokeStyle = "rgba(200, 225, 255, 0.45)";
-      ctx.lineWidth = 1.2;
-      drops.forEach(d => {
-        ctx.beginPath();
-        ctx.moveTo(d.x, d.y);
-        ctx.lineTo(d.x - 2, d.y + d.len);
-        ctx.stroke();
-
-        d.y += d.speed;
-        d.x -= 1;
-        if (d.y > canvas.height) {
-          d.y = -d.len;
-          d.x = Math.random() * canvas.width;
-        }
-      });
-    } else if (activeWeather === "stars") {
-      stars.forEach(s => {
-        s.alpha += s.dAlpha;
-        if (s.alpha <= 0.2 || s.alpha >= 1) s.dAlpha *= -1;
-
-        ctx.fillStyle = `rgba(255, 255, 255, ${s.alpha})`;
-        ctx.beginPath();
-        ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
-        ctx.fill();
-      });
+async function removeLocalSong(songId) {
+  if (confirm("Delete this local song from device storage?")) {
+    await deleteLocalTrackFromDB(songId);
+    localTracks = localTracks.filter(t => t.id !== songId);
+    rebuildPlaylist();
+    if (playlist[currentTrackIndex] && playlist[currentTrackIndex].id === songId) {
+      loadTrack(0);
     }
-    requestAnimationFrame(drawWeather);
   }
-  drawWeather();
 }
 
 // ========================================================
-// 3 BOUNCING BALLS + SOUND BAR REAL-TIME COLLISION ENGINE
+// UI CONTROLS & DRAWERS
 // ========================================================
-function setupBouncingBalls() {
-  const btnDrawer = document.getElementById("open-drawer-btn");
-  const btnTheme = document.getElementById("open-theme-btn");
-  const btnUpload = document.getElementById("quick-upload-btn");
+function toggleZenMode() {
+  isZenMode = !isZenMode;
+  document.body.classList.toggle("zen-mode", isZenMode);
+}
 
+function exitZenMode() {
+  if (isZenMode) {
+    isZenMode = false;
+    document.body.classList.remove("zen-mode");
+  }
+}
+
+function applyMood(index, userExplicitChoice = true) {
+  if (index < 0 || index >= moods.length) index = 0;
+  moods.forEach(m => document.body.classList.remove(m.cls));
+
+  currentMoodIndex = index;
+  localStorage.setItem("vibe_mood_idx", currentMoodIndex);
+
+  const mood = moods[currentMoodIndex];
+  document.body.classList.add(mood.cls);
+
+  if (moodLabel) moodLabel.textContent = mood.name;
+  if (moodIcon) moodIcon.className = mood.icon;
+
+  const moodBtns = document.querySelectorAll(".mood-btn");
+  moodBtns.forEach((btn, i) => {
+    btn.classList.toggle("active", i === currentMoodIndex);
+  });
+
+  if (userExplicitChoice) {
+    if (mood.weather === "rain" && rainSlider) {
+      if (!isWebAudioInit) initRainAudio();
+      if (rainSlider.value == 0) {
+        rainSlider.value = 0.4;
+        if (rainGainNode) rainGainNode.gain.value = 0.4;
+      }
+    } else if (rainSlider && rainGainNode && rainSlider.value > 0) {
+      rainSlider.value = 0;
+      rainGainNode.gain.value = 0;
+    }
+  }
+}
+
+function cycleMood() {
+  const nextIdx = (currentMoodIndex + 1) % moods.length;
+  applyMood(nextIdx, true);
+}
+
+function applyBackground(index) {
+  if (index < 0 || index >= backgrounds.length) index = 0;
+  currentBgIndex = String(index);
+  localStorage.setItem("vibe_bg_idx", currentBgIndex);
+
+  const bg = backgrounds[index];
+  document.documentElement.style.setProperty('--bg-desktop', `url('${bg.desktop}')`);
+  document.documentElement.style.setProperty('--bg-mobile', `url('${bg.mobile}')`);
+
+  document.querySelectorAll(".bg-btn").forEach((btn, i) => {
+    btn.classList.toggle("active", i === index);
+  });
+  if (customBgLabel) customBgLabel.classList.remove("active");
+}
+
+function applyCustomBackground(dataUrl) {
+  currentBgIndex = "custom";
+  customBgData = dataUrl;
+  localStorage.setItem("vibe_bg_idx", "custom");
+  try {
+    localStorage.setItem("vibe_custom_bg", dataUrl);
+  } catch (err) {
+    console.warn("Storage quota full");
+  }
+
+  document.documentElement.style.setProperty('--bg-desktop', `url('${dataUrl}')`);
+  document.documentElement.style.setProperty('--bg-mobile', `url('${dataUrl}')`);
+
+  document.querySelectorAll(".bg-btn").forEach(btn => btn.classList.remove("active"));
+  if (customBgLabel) customBgLabel.classList.add("active");
+}
+
+function handleCustomBgUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = (event) => {
+    applyCustomBackground(event.target.result);
+  };
+  reader.readAsDataURL(file);
+}
+
+function setupSwipeGestures() {
+  let touchStartX = 0;
+  window.addEventListener("touchstart", (e) => { touchStartX = e.touches[0].clientX; }, { passive: true });
+  window.addEventListener("touchend", (e) => {
+    if (isArcadeMode || e.target.closest("#volume-slider") || e.target.closest("#seek-container") || e.target.closest(".playlist-drawer")) return;
+    const touchEndX = e.changedTouches[0].clientX;
+    const diffX = touchEndX - touchStartX;
+    if (Math.abs(diffX) > 60) {
+      if (diffX < 0) nextTrack();
+      else prevTrack();
+    }
+  });
+}
+
+function renderPlaylist() {
+  if (!playlistScrollList) return;
+  playlistScrollList.innerHTML = "";
+
+  const query = searchInput ? searchInput.value.toLowerCase().trim() : "";
+
+  let targetTracks = playlist;
+  if (currentTab === "liked") {
+    targetTracks = playlist.filter(t => likedTrackIds.includes(t.id));
+  } else if (currentTab === "custom" && activeCustomPlaylistName) {
+    const allowedIds = customPlaylists[activeCustomPlaylistName] || [];
+    targetTracks = playlist.filter(t => allowedIds.includes(t.id));
+  }
+
+  if (targetTracks.length === 0) {
+    const emptyMsg = document.createElement("p");
+    emptyMsg.style.cssText = "text-align: center; color: rgba(255,255,255,0.4); font-size: 0.85rem; padding: 25px 0;";
+    emptyMsg.textContent = "No songs found.";
+    playlistScrollList.appendChild(emptyMsg);
+    return;
+  }
+
+  targetTracks.forEach((track) => {
+    const originalIndex = playlist.findIndex(t => t.id === track.id);
+    if (originalIndex === -1) return;
+
+    if (query && !track.title.toLowerCase().includes(query) && !(track.artist || "").toLowerCase().includes(query)) return;
+
+    const isLiked = likedTrackIds.includes(track.id);
+    const displayArtist = (!track.artist || track.artist.trim() === "") ? FALLBACK_ARTIST : track.artist;
+
+    const item = document.createElement("div");
+    item.className = `playlist-item ${originalIndex === currentTrackIndex ? "active" : ""}`;
+    
+    let deleteBtnHtml = track.isLocal ? `<button class="item-delete-btn" title="Delete from device"><i class="ri-delete-bin-line"></i></button>` : '';
+
+    item.innerHTML = `
+      <div class="playlist-item-info">
+        <div class="item-title">${track.title}</div>
+        <div class="item-artist">${displayArtist}</div>
+      </div>
+      <div class="item-actions">
+        <button class="item-edit-btn" title="Edit Info"><i class="ri-edit-line"></i></button>
+        ${deleteBtnHtml}
+        <button class="item-heart-btn ${isLiked ? "liked" : ""}">
+          <i class="${isLiked ? "ri-heart-fill" : "ri-heart-line"}"></i>
+        </button>
+        <i class="ri-volume-up-fill item-indicator"></i>
+      </div>
+    `;
+
+    item.addEventListener("click", (e) => {
+      if (e.target.closest(".item-heart-btn") || e.target.closest(".item-edit-btn") || e.target.closest(".item-delete-btn")) return;
+      triggerFadeTransition(() => {
+        loadTrack(originalIndex);
+        playTrack();
+      });
+      closeAllDrawers();
+    });
+
+    const editBtn = item.querySelector(".item-edit-btn");
+    if (editBtn) {
+      editBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        editTrackInfo(track.id);
+      });
+    }
+
+    const delBtn = item.querySelector(".item-delete-btn");
+    if (delBtn) {
+      delBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        removeLocalSong(track.id);
+      });
+    }
+
+    const itemHeart = item.querySelector(".item-heart-btn");
+    itemHeart.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const idIdx = likedTrackIds.indexOf(track.id);
+      if (idIdx > -1) likedTrackIds.splice(idIdx, 1);
+      else likedTrackIds.push(track.id);
+      localStorage.setItem("vibe_liked_songs", JSON.stringify(likedTrackIds));
+      updateHeartButton();
+      updateLikedCount();
+      renderPlaylist();
+    });
+
+    playlistScrollList.appendChild(item);
+  });
+}
+
+function openPlaylistDrawer() {
+  closeAllDrawers();
+  if (playlistDrawer) playlistDrawer.classList.add("active");
+  if (drawerBackdrop) drawerBackdrop.classList.add("active");
+}
+
+function openThemeDrawer() {
+  closeAllDrawers();
+  if (themeDrawer) themeDrawer.classList.add("active");
+  if (drawerBackdrop) drawerBackdrop.classList.add("active");
+}
+
+function closeAllDrawers() {
+  if (playlistDrawer) playlistDrawer.classList.remove("active");
+  if (themeDrawer) themeDrawer.classList.remove("active");
+  if (drawerBackdrop) drawerBackdrop.classList.remove("active");
+}
+
+// Draggable Volume Pill (Also Paddle in Arcade Mode)
+function setupDraggableVolume() {
+  if (!draggableVolume) return;
+
+  let volCurrentX = Math.max(20, window.innerWidth - 210);
+  let volCurrentY = Math.max(20, window.innerHeight - 80);
+  let startX = 0, startY = 0;
+  let isDragging = false;
+
+  const getRestrictedY = (y) => {
+    if (!isArcadeMode) return y;
+    return window.innerHeight - draggableVolume.offsetHeight - 25;
+  };
+
+  draggableVolume.style.transform = `translate3d(${volCurrentX}px, ${getRestrictedY(volCurrentY)}px, 0)`;
+
+  function onPointerDown(e) {
+    if (e.target === volumeSlider) return;
+    isDragging = true;
+    startX = e.clientX - volCurrentX;
+    startY = e.clientY - volCurrentY;
+    draggableVolume.setPointerCapture(e.pointerId);
+  }
+
+  function onPointerMove(e) {
+    if (!isDragging) return;
+    let newX = e.clientX - startX;
+    let newY = e.clientY - startY;
+
+    const maxX = window.innerWidth - (draggableVolume.offsetWidth || 180) - 10;
+    const maxY = window.innerHeight - (draggableVolume.offsetHeight || 42) - 10;
+
+    newX = Math.max(10, Math.min(newX, maxX));
+    newY = Math.max(10, Math.min(newY, maxY));
+
+    volCurrentX = newX;
+    volCurrentY = newY;
+    draggableVolume.style.transform = `translate3d(${volCurrentX}px, ${getRestrictedY(volCurrentY)}px, 0)`;
+  }
+
+  function onPointerUp(e) {
+    if (!isDragging) return;
+    isDragging = false;
+    try { draggableVolume.releasePointerCapture(e.pointerId); } catch(err) {}
+  }
+
+  draggableVolume.addEventListener("pointerdown", onPointerDown);
+  window.addEventListener("pointermove", onPointerMove);
+  window.addEventListener("pointerup", onPointerUp);
+}
+
+// Rain Audio Synth
+function initRainAudio() {
+  if (isWebAudioInit) return;
+  try {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    audioCtx = new AudioContextClass();
+    const bufferSize = audioCtx.sampleRate * 2;
+    const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+    const output = noiseBuffer.getChannelData(0);
+    let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
+    for (let i = 0; i < bufferSize; i++) {
+      const white = Math.random() * 2 - 1;
+      b0 = 0.99886 * b0 + white * 0.0555179;
+      b1 = 0.99332 * b1 + white * 0.0750759;
+      b2 = 0.96900 * b2 + white * 0.1538520;
+      b3 = 0.86650 * b3 + white * 0.3104856;
+      b4 = 0.55000 * b4 + white * 0.5329522;
+      b5 = -0.7616 * b5 - white * 0.0168980;
+      output[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362) * 0.11;
+      b6 = white * 0.115926;
+    }
+
+    const rainSource = audioCtx.createBufferSource();
+    rainSource.buffer = noiseBuffer;
+    rainSource.loop = true;
+
+    const rainFilter = audioCtx.createBiquadFilter();
+    rainFilter.type = "lowpass";
+    rainFilter.frequency.value = 1000;
+
+    rainGainNode = audioCtx.createGain();
+    rainGainNode.gain.value = 0;
+
+    rainSource.connect(rainFilter);
+    rainFilter.connect(rainGainNode);
+    rainGainNode.connect(audioCtx.destination);
+    rainSource.start();
+
+    isWebAudioInit = true;
+  } catch (err) {
+    console.warn("Rain audio init waiting:", err);
+  }
+}
+
+// Bouncing Balls (Normal Mode)
+function setupBouncingBalls() {
   const winW = window.innerWidth;
   const winH = window.innerHeight;
 
@@ -1257,194 +1176,382 @@ function setupBouncingBalls() {
   ].filter(b => b.el !== null);
 
   balls.forEach(ball => {
-    ball.el.addEventListener("mouseenter", () => { ball.isPaused = true; });
-    ball.el.addEventListener("mouseleave", () => { ball.isPaused = false; });
-    ball.el.addEventListener("touchstart", () => { ball.isPaused = true; }, { passive: true });
-    ball.el.addEventListener("touchend", () => { 
-      setTimeout(() => { ball.isPaused = false; }, 800); 
-    });
+    ball.el.addEventListener("mouseenter", () => { if (!isArcadeMode) ball.isPaused = true; });
+    ball.el.addEventListener("mouseleave", () => { if (!isArcadeMode) ball.isPaused = false; });
+    ball.el.addEventListener("touchstart", () => { if (!isArcadeMode) ball.isPaused = true; }, { passive: true });
+    ball.el.addEventListener("touchend", () => { if (!isArcadeMode) setTimeout(() => { ball.isPaused = false; }, 800); });
   });
 
-  requestAnimationFrame(updatePhysics);
+  requestAnimationFrame(updateNormalPhysics);
 }
 
-function updatePhysics() {
+function updateNormalPhysics() {
+  if (isArcadeMode) return;
+
   const winW = window.innerWidth;
   const winH = window.innerHeight;
 
-  // 1. Position Step & Screen Edge Bounces
   balls.forEach(ball => {
-    if (!ball.isPaused) {
+    if (!ball.isPaused && ball.el) {
       ball.x += ball.vx;
       ball.y += ball.vy;
 
-      if (ball.x <= 0) {
-        ball.x = 0;
-        ball.vx = Math.abs(ball.vx);
-      } else if (ball.x + ball.size >= winW) {
-        ball.x = winW - ball.size;
-        ball.vx = -Math.abs(ball.vx);
+      if (ball.x <= 0 || ball.x + ball.size >= winW) {
+        ball.x = Math.max(0, Math.min(ball.x, winW - ball.size));
+        ball.vx *= -1;
       }
-
-      if (ball.y <= 0) {
-        ball.y = 0;
-        ball.vy = Math.abs(ball.vy);
-      } else if (ball.y + ball.size >= winH) {
-        ball.y = winH - ball.size;
-        ball.vy = -Math.abs(ball.vy);
+      if (ball.y <= 0 || ball.y + ball.size >= winH) {
+        ball.y = Math.max(0, Math.min(ball.y, winH - ball.size));
+        ball.vy *= -1;
       }
+      ball.el.style.transform = `translate3d(${ball.x}px, ${ball.y}px, 0)`;
     }
   });
 
-  // 2. Ball-to-Ball Elastic Collisions
+  // Circle vs Circle collision
   for (let i = 0; i < balls.length; i++) {
     for (let j = i + 1; j < balls.length; j++) {
-      const b1 = balls[i];
-      const b2 = balls[j];
-
-      const c1x = b1.x + b1.size / 2;
-      const c1y = b1.y + b1.size / 2;
-      const c2x = b2.x + b2.size / 2;
-      const c2y = b2.y + b2.size / 2;
-
-      const dx = c2x - c1x;
-      const dy = c2y - c1y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
+      const b1 = balls[i], b2 = balls[j];
+      const dx = (b2.x + b2.size/2) - (b1.x + b1.size/2);
+      const dy = (b2.y + b2.size/2) - (b1.y + b1.size/2);
+      const dist = Math.sqrt(dx*dx + dy*dy);
       const minDist = (b1.size + b2.size) / 2;
-
       if (dist < minDist && dist > 0) {
-        const nx = dx / dist;
-        const ny = dy / dist;
-
-        const kx = b1.vx - b2.vx;
-        const ky = b1.vy - b2.vy;
-        const p = kx * nx + ky * ny;
-
+        const nx = dx/dist, ny = dy/dist;
+        const p = (b1.vx - b2.vx)*nx + (b1.vy - b2.vy)*ny;
         if (p > 0) {
-          b1.vx -= p * nx;
-          b1.vy -= p * ny;
-          b2.vx += p * nx;
-          b2.vy += p * ny;
+          b1.vx -= p*nx; b1.vy -= p*ny;
+          b2.vx += p*nx; b2.vy += p*ny;
         }
-
-        const overlap = (minDist - dist) / 2 + 1.2;
-        b1.x -= overlap * nx;
-        b1.y -= overlap * ny;
-        b2.x += overlap * nx;
-        b2.y += overlap * ny;
       }
     }
   }
 
-  // 3. Live Sound Bar AABB vs Ball Circle Collision Engine
+  // Volume Bar live collision
   if (draggableVolume) {
     const vRect = draggableVolume.getBoundingClientRect();
-    const margin = 4;
-    const vLeft = vRect.left - margin;
-    const vRight = vRect.right + margin;
-    const vTop = vRect.top - margin;
-    const vBottom = vRect.bottom + margin;
-
     balls.forEach(ball => {
-      const r = ball.size / 2;
-      const cx = ball.x + r;
-      const cy = ball.y + r;
-
-      const clampedX = Math.max(vLeft, Math.min(cx, vRight));
-      const clampedY = Math.max(vTop, Math.min(cy, vBottom));
-
-      const dx = cx - clampedX;
-      const dy = cy - clampedY;
-      const distSq = dx * dx + dy * dy;
-
-      if (distSq < r * r) {
-        const dist = Math.sqrt(distSq);
-        let nx = 0, ny = 0;
-        let overlap = 0;
-
-        if (dist > 0.001) {
-          nx = dx / dist;
-          ny = dy / dist;
-          overlap = r - dist;
-        } else {
-          const dLeft = Math.abs(cx - vLeft);
-          const dRight = Math.abs(vRight - cx);
-          const dTop = Math.abs(cy - vTop);
-          const dBottom = Math.abs(vBottom - cy);
-          const minD = Math.min(dLeft, dRight, dTop, dBottom);
-
-          if (minD === dLeft) { nx = -1; ny = 0; overlap = r + dLeft; }
-          else if (minD === dRight) { nx = 1; ny = 0; overlap = r + dRight; }
-          else if (minD === dTop) { nx = 0; ny = -1; overlap = r + dTop; }
-          else { nx = 0; ny = 1; overlap = r + dBottom; }
-        }
-
-        ball.x += nx * (overlap + 2.5);
-        ball.y += ny * (overlap + 2.5);
-
-        const dot = ball.vx * nx + ball.vy * ny;
-        if (dot < 0) {
-          ball.vx = ball.vx - 2 * dot * nx;
-          ball.vy = ball.vy - 2 * dot * ny;
-        } else {
-          ball.vx += nx * 1.5;
-          ball.vy += ny * 1.5;
-        }
+      const r = ball.size/2, cx = ball.x + r, cy = ball.y + r;
+      const clampedX = Math.max(vRect.left - 4, Math.min(cx, vRect.right + 4));
+      const clampedY = Math.max(vRect.top - 4, Math.min(cy, vRect.bottom + 4));
+      const dx = cx - clampedX, dy = cy - clampedY;
+      if (dx*dx + dy*dy < r*r) {
+        if (clampedX === vRect.left - 4 || clampedX === vRect.right + 4) ball.vx *= -1;
+        if (clampedY === vRect.top - 4 || clampedY === vRect.bottom + 4) ball.vy *= -1;
       }
     });
   }
 
-  // 4. Ball Speed Safety Normalizer
-  balls.forEach(ball => {
-    const spd = Math.sqrt(ball.vx * ball.vx + ball.vy * ball.vy);
-    if (spd < 1.6) {
-      ball.vx = (ball.vx / (spd || 1)) * 2.4;
-      ball.vy = (ball.vy / (spd || 1)) * 2.4;
-    } else if (spd > 4.5) {
-      ball.vx = (ball.vx / spd) * 3.6;
-      ball.vy = (ball.vy / spd) * 3.6;
+  requestAnimationFrame(updateNormalPhysics);
+}
+
+// Weather Canvas
+function initWeatherCanvas() {
+  const canvas = document.getElementById("weather-canvas");
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+  function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+  resize(); window.addEventListener("resize", resize);
+
+  const drops = Array.from({ length: 90 }, () => ({ x: Math.random() * window.innerWidth, y: Math.random() * window.innerHeight, len: Math.random() * 18 + 12, speed: Math.random() * 8 + 12 }));
+  const stars = Array.from({ length: 65 }, () => ({ x: Math.random() * window.innerWidth, y: Math.random() * (window.innerHeight * 0.6), r: Math.random() * 1.5 + 0.5, alpha: Math.random(), dAlpha: (Math.random() * 0.02 + 0.008) * (Math.random() < 0.5 ? 1 : -1) }));
+
+  function drawWeather() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const activeWeather = moods[currentMoodIndex].weather;
+    if (activeWeather === "rain") {
+      ctx.strokeStyle = "rgba(200, 225, 255, 0.45)"; ctx.lineWidth = 1.2;
+      drops.forEach(d => { ctx.beginPath(); ctx.moveTo(d.x, d.y); ctx.lineTo(d.x - 2, d.y + d.len); ctx.stroke(); d.y += d.speed; d.x -= 1; if (d.y > canvas.height) { d.y = -d.len; d.x = Math.random() * canvas.width; } });
+    } else if (activeWeather === "stars") {
+      stars.forEach(s => { s.alpha += s.dAlpha; if (s.alpha <= 0.2 || s.alpha >= 1) s.dAlpha *= -1; ctx.fillStyle = `rgba(255, 255, 255, ${s.alpha})`; ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2); ctx.fill(); });
     }
-  });
-
-  // 5. Render Final Transforms
-  balls.forEach(ball => {
-    ball.el.style.transform = `translate3d(${ball.x}px, ${ball.y}px, 0)`;
-  });
-
-  requestAnimationFrame(updatePhysics);
+    requestAnimationFrame(drawWeather);
+  }
+  drawWeather();
 }
 
-// Local Personal Upload
-function handleLocalFileUpload(event) {
-  const files = event.target.files;
-  if (!files || files.length === 0) return;
+function renderCustomPlaylists() {}
 
-  const startIndex = playlist.length;
+// ========================================================
+// 🕹️ ARCADE MODE (PROGRESSIVE PONG GAME ENGINE)
+// ========================================================
+function initArcadeUI() {
+  scoreOverlay = document.createElement("div");
+  scoreOverlay.className = "arcade-score-overlay";
+  scoreOverlay.innerHTML = `
+    <div class="score-row"><i class="ri-fire-fill gold"></i> World Top: <span id="arcade-global-hs">0</span> <span id="arcade-global-nick" class="nick"></span></div>
+    <div class="score-row"><i class="ri-medal-fill silver"></i> Your Best: <span id="arcade-personal-hs">0</span></div>
+    <div class="score-main">Score: <span id="arcade-current-score">0</span> | Lv: <span id="arcade-level">1</span></div>
+  `;
+  document.body.appendChild(scoreOverlay);
 
-  Array.from(files).forEach((file, i) => {
-    const fileUrl = URL.createObjectURL(file);
-    const cleanTitle = file.name.replace(/\.[^/.]+$/, "");
+  gameMsgOverlay = document.createElement("div");
+  gameMsgOverlay.className = "arcade-msg-overlay";
+  gameMsgOverlay.innerHTML = `
+    <div class="msg-content">
+      <i class="ri-gamepad-line modal-icon"></i>
+      <h1 id="arcade-msg-title">Component Arcade</h1>
+      <p id="arcade-msg-body">Use your sound bar as a paddle! Don't let the components fall into the bottom void.</p>
+      <button id="arcade-start-btn" class="glass-btn primary">Start Vibe</button>
+    </div>
+  `;
+  document.body.appendChild(gameMsgOverlay);
 
-    localTracks.push({
-      id: `local_${Date.now()}_${i}`,
-      title: cleanTitle,
-      artist: FALLBACK_ARTIST,
-      src: fileUrl
-    });
-  });
+  nicknameModal = document.createElement("div");
+  nicknameModal.className = "arcade-modal-backdrop";
+  nicknameModal.innerHTML = `
+    <div class="glass-modal">
+      <i class="ri-user-star-line modal-icon"></i>
+      <h3>Select Game Tag</h3>
+      <p>Choose a name for the Global Leaderboard.</p>
+      <input type="text" id="arcade-nick-input" placeholder="VibeMaster" maxlength="10">
+      <button id="arcade-save-nick-btn" class="glass-btn primary">Save Tag</button>
+    </div>
+  `;
+  document.body.appendChild(nicknameModal);
 
-  rebuildPlaylist();
-  loadTrack(startIndex);
-  playTrack();
+  document.getElementById("arcade-start-btn").addEventListener("click", prepareArcadeStart);
+  document.getElementById("arcade-save-nick-btn").addEventListener("click", saveArcadeNickname);
+}
+
+function updateScoreUI() {
+  document.getElementById("arcade-global-hs").textContent = globalHighScore;
+  document.getElementById("arcade-global-nick").textContent = `(${globalHighScoreNickname})`;
+  document.getElementById("arcade-personal-hs").textContent = personalHighScore;
+  document.getElementById("arcade-current-score").textContent = arcadeScore;
+  document.getElementById("arcade-level").textContent = arcadeLevel;
+}
+
+async function fetchGlobalHighScore() {
+  if (!supabaseClient) return;
+  try {
+    const { data, error } = await supabaseClient
+      .from('arcade_scores')
+      .select('*')
+      .order('score', { ascending: false })
+      .limit(1);
+
+    if (!error && data && data.length > 0) {
+      globalHighScore = data[0].score;
+      globalHighScoreNickname = data[0].nickname;
+    }
+  } catch (err) {
+    console.warn(err);
+  }
+}
+
+async function updateGlobalScore(newScore) {
+  if (!supabaseClient || !arcadeNickname || newScore <= personalHighScore) return;
+  try {
+    await supabaseClient
+      .from('arcade_scores')
+      .upsert({ nickname: arcadeNickname, score: newScore, updated_at: new Date() });
+    personalHighScore = newScore;
+    localStorage.setItem("vibe_arcade_personal_hs", personalHighScore.toString());
+    await fetchGlobalHighScore();
+  } catch (err) {
+    console.warn(err);
+  }
+}
+
+function saveArcadeNickname() {
+  const input = document.getElementById("arcade-nick-input");
+  const nick = input.value.trim();
+  if (!nick || nick.length < 2) {
+    alert("Tag must be at least 2 characters.");
+    return;
+  }
+  arcadeNickname = nick;
+  localStorage.setItem("vibe_arcade_nickname", arcadeNickname);
+  nicknameModal.classList.remove("active");
+  requestStartArcade();
+}
+
+function prepareArcadeStart() {
+  gameMsgOverlay.classList.remove("active");
+  if (!arcadeNickname) {
+    nicknameModal.classList.add("active");
+  } else {
+    requestStartArcade();
+  }
+}
+
+async function requestStartArcade() {
+  exitZenMode();
   closeAllDrawers();
-  event.target.value = "";
+  isArcadeMode = true;
+  arcadeScore = 0;
+  arcadeLevel = 1;
+  arcadeBalls = [];
+
+  scoreOverlay.classList.add("active");
+  draggableVolume.classList.add("game-paddle-mode");
+
+  // Hide 3 default floating balls
+  [btnDrawer, btnTheme, btnUpload].forEach(b => { if (b) b.style.display = "none"; });
+
+  await fetchGlobalHighScore();
+  updateScoreUI();
+
+  // Create initial merged settings ball
+  spawnDynamicArcadeBall("merge_ball", "ri-play-list-2-fill", window.innerWidth / 2 - 26, 120, 3.2, -4);
+
+  requestAnimationFrame(updateArcadePhysics);
 }
 
-// Event Listeners Binding
+function spawnDynamicArcadeBall(id, iconCls, startX, startY, vx, vy) {
+  const ballEl = document.createElement("div");
+  ballEl.className = "arcade-dynamic-ball";
+  ballEl.id = `arcade_${id}`;
+  ballEl.innerHTML = `<i class="${iconCls}"></i>`;
+  document.body.appendChild(ballEl);
+
+  arcadeBalls.push({
+    id: id,
+    el: ballEl,
+    x: startX,
+    y: startY,
+    vx: vx,
+    vy: vy,
+    size: 52
+  });
+}
+
+function checkArcadeProgression() {
+  let newLevel = 1;
+  if (arcadeScore >= 1200) newLevel = 6;
+  else if (arcadeScore >= 800) newLevel = 5;
+  else if (arcadeScore >= 500) newLevel = 4;
+  else if (arcadeScore >= 250) newLevel = 3;
+  else if (arcadeScore >= 100) newLevel = 2;
+
+  if (newLevel > arcadeLevel) {
+    arcadeLevel = newLevel;
+    triggerArcadeLevelSpawn(arcadeLevel);
+    updateScoreUI();
+  }
+}
+
+function triggerArcadeLevelSpawn(level) {
+  const winW = window.innerWidth;
+  if (level === 2) {
+    spawnDynamicArcadeBall("theme_ball", "ri-palette-line", Math.random() * (winW - 100) + 50, 100, -3.5, -4);
+  } else if (level === 3) {
+    spawnDynamicArcadeBall("upload_ball", "ri-folder-music-fill", Math.random() * (winW - 100) + 50, 100, 3.8, -4);
+  } else if (level === 4) {
+    if (playBtn) playBtn.style.opacity = "0.2";
+    spawnDynamicArcadeBall("play_ball", "ri-play-fill", Math.random() * (winW - 100) + 50, 100, -4.0, -4);
+  } else if (level === 5) {
+    if (nextBtn) nextBtn.style.opacity = "0.2";
+    spawnDynamicArcadeBall("next_ball", "ri-skip-forward-fill", Math.random() * (winW - 100) + 50, 100, 4.2, -4);
+  } else if (level === 6) {
+    spawnDynamicArcadeBall("core_ball", "ri-sparkling-fill", Math.random() * (winW - 100) + 50, 100, -4.5, -4);
+  }
+}
+
+function updateArcadePhysics() {
+  if (!isArcadeMode) return;
+
+  const winW = window.innerWidth;
+  const winH = window.innerHeight;
+
+  const vRect = draggableVolume.getBoundingClientRect();
+  const paddleLeft = vRect.left;
+  const paddleRight = vRect.right;
+  const paddleTop = vRect.top;
+  const paddleHeight = vRect.height;
+
+  for (let i = 0; i < arcadeBalls.length; i++) {
+    const ball = arcadeBalls[i];
+    ball.vy += arcadeGravity;
+    ball.x += ball.vx;
+    ball.y += ball.vy;
+
+    // Side Wall Bounce
+    if (ball.x <= 0) {
+      ball.x = 0;
+      ball.vx = Math.abs(ball.vx);
+    } else if (ball.x + ball.size >= winW) {
+      ball.x = winW - ball.size;
+      ball.vx = -Math.abs(ball.vx);
+    }
+
+    // Top Ceiling Bounce
+    if (ball.y <= 0) {
+      ball.y = 0;
+      ball.vy = Math.abs(ball.vy);
+    }
+
+    // Paddle Hit Collision
+    if (
+      ball.y + ball.size >= paddleTop &&
+      ball.y <= paddleTop + paddleHeight &&
+      ball.x + ball.size >= paddleLeft &&
+      ball.x <= paddleRight
+    ) {
+      ball.y = paddleTop - ball.size - 2;
+      ball.vy = -Math.abs(ball.vy) * 1.02;
+
+      // Angular bounce based on hit position
+      const hitCenter = ball.x + ball.size / 2;
+      const paddleCenter = paddleLeft + (paddleRight - paddleLeft) / 2;
+      const offset = (hitCenter - paddleCenter) / ((paddleRight - paddleLeft) / 2);
+      ball.vx = offset * 5.5;
+
+      arcadeScore += 10 + arcadeLevel * 2;
+      checkArcadeProgression();
+      updateScoreUI();
+    }
+
+    // Ball Fell Off Bottom -> Game Over
+    if (ball.y + ball.size >= winH) {
+      endArcadeGame();
+      return;
+    }
+
+    ball.el.style.transform = `translate3d(${ball.x}px, ${ball.y}px, 0)`;
+  }
+
+  requestAnimationFrame(updateArcadePhysics);
+}
+
+function endArcadeGame() {
+  isArcadeMode = false;
+  scoreOverlay.classList.remove("active");
+  draggableVolume.classList.remove("game-paddle-mode");
+
+  // Clean up dynamic arcade balls
+  arcadeBalls.forEach(b => { if (b.el) b.el.remove(); });
+  arcadeBalls = [];
+
+  // Restore control button opacities
+  if (playBtn) playBtn.style.opacity = "1";
+  if (nextBtn) nextBtn.style.opacity = "1";
+
+  // Restore 3 normal floating balls
+  [btnDrawer, btnTheme, btnUpload].forEach(b => { if (b) b.style.display = "grid"; });
+
+  if (arcadeScore > personalHighScore) {
+    personalHighScore = arcadeScore;
+    localStorage.setItem("vibe_arcade_personal_hs", personalHighScore.toString());
+    updateGlobalScore(arcadeScore);
+  }
+
+  document.getElementById("arcade-msg-title").textContent = "Game Over";
+  document.getElementById("arcade-msg-body").innerHTML = `Score: <strong>${arcadeScore}</strong><br>Keep vibing and bouncing!`;
+  document.getElementById("arcade-start-btn").textContent = "Play Again";
+  gameMsgOverlay.classList.add("active");
+
+  requestAnimationFrame(updateNormalPhysics);
+}
+
+// ========================================================
+// LISTENERS & SHORTCUTS
+// ========================================================
 function setupListeners() {
   if (playBtn) playBtn.addEventListener("click", togglePlay);
-  if (nextBtn) nextBtn.addEventListener("click", () => triggerFadeTransition(nextTrack));
-  if (prevBtn) prevBtn.addEventListener("click", () => triggerFadeTransition(prevTrack));
+  if (nextBtn) nextBtn.addEventListener("click", nextTrack);
+  if (prevBtn) prevBtn.addEventListener("click", prevTrack);
 
   if (shuffleBtn) {
     shuffleBtn.addEventListener("click", () => {
@@ -1470,12 +1577,10 @@ function setupListeners() {
     volumeIcon.addEventListener("click", () => {
       if (audioA.volume > 0) {
         prevVol = audioA.volume;
-        audioA.volume = 0;
-        audioB.volume = 0;
+        audioA.volume = 0; audioB.volume = 0;
         volumeSlider.value = 0;
       } else {
-        audioA.volume = prevVol || 1;
-        audioB.volume = prevVol || 1;
+        audioA.volume = prevVol || 1; audioB.volume = prevVol || 1;
         volumeSlider.value = audioA.volume;
       }
       updateVolumeIcon(audioA.volume);
@@ -1503,7 +1608,13 @@ function setupListeners() {
     });
   }
 
-  if (createPlaylistBtn) createPlaylistBtn.addEventListener("click", createNewPlaylist);
+  // Arcade Toggle
+  if (arcadeToggleBtn) {
+    arcadeToggleBtn.addEventListener("click", () => {
+      if (isArcadeMode) endArcadeGame();
+      else gameMsgOverlay.classList.add("active");
+    });
+  }
 
   // Wallpapers & Moods
   document.querySelectorAll(".bg-btn:not(#custom-bg-label)").forEach(btn => {
@@ -1516,7 +1627,6 @@ function setupListeners() {
     btn.addEventListener("click", () => applyMood(parseInt(btn.getAttribute("data-mood")), true));
   });
 
-  // Search & Filter Tabs
   if (searchInput) searchInput.addEventListener("input", renderPlaylist);
   
   if (tabAllBtn) {
@@ -1525,7 +1635,6 @@ function setupListeners() {
       activeCustomPlaylistName = null;
       tabAllBtn.classList.add("active");
       if (tabLikedBtn) tabLikedBtn.classList.remove("active");
-      renderCustomPlaylists();
       renderPlaylist();
       preloadStandbyTrack();
     });
@@ -1537,7 +1646,6 @@ function setupListeners() {
       activeCustomPlaylistName = null;
       tabLikedBtn.classList.add("active");
       if (tabAllBtn) tabAllBtn.classList.remove("active");
-      renderCustomPlaylists();
       renderPlaylist();
       preloadStandbyTrack();
     });
@@ -1550,7 +1658,7 @@ function setupListeners() {
     });
   }
 
-  // Cloud Upload PIN
+  // Main Playlist Upload
   if (mainAudioInput) {
     mainAudioInput.addEventListener("change", (e) => {
       if (!e.target.files || e.target.files.length === 0) return;
@@ -1567,37 +1675,31 @@ function setupListeners() {
     });
   }
 
+  // Local Uploads (Saved Permanently)
+  if (audioFileInput) audioFileInput.addEventListener("change", handleLocalFileUpload);
+  if (drawerAudioFileInput) drawerAudioFileInput.addEventListener("change", handleLocalFileUpload);
+
   // 3 Bouncing Balls Click Handlers
-  const openDrawerBtn = document.getElementById("open-drawer-btn");
-  const openThemeBtn = document.getElementById("open-theme-btn");
-  const quickUploadBtn = document.getElementById("quick-upload-btn");
+  if (btnDrawer) btnDrawer.addEventListener("click", (e) => { if (!isArcadeMode) { e.stopPropagation(); openPlaylistDrawer(); } });
+  if (btnTheme) btnTheme.addEventListener("click", (e) => { if (!isArcadeMode) { e.stopPropagation(); openThemeDrawer(); } });
+  if (btnUpload) btnUpload.addEventListener("click", (e) => { if (!isArcadeMode) { e.stopPropagation(); if (audioFileInput) audioFileInput.click(); } });
+
   const closeDrawerBtn = document.getElementById("close-drawer-btn");
   const closeThemeBtn = document.getElementById("close-theme-btn");
-
-  if (openDrawerBtn) openDrawerBtn.addEventListener("click", (e) => { e.stopPropagation(); openPlaylistDrawer(); });
-  if (openThemeBtn) openThemeBtn.addEventListener("click", (e) => { e.stopPropagation(); openThemeDrawer(); });
-  if (quickUploadBtn) quickUploadBtn.addEventListener("click", (e) => { e.stopPropagation(); if (audioFileInput) audioFileInput.click(); });
-
   if (closeDrawerBtn) closeDrawerBtn.addEventListener("click", closeAllDrawers);
   if (closeThemeBtn) closeThemeBtn.addEventListener("click", closeAllDrawers);
   if (drawerBackdrop) drawerBackdrop.addEventListener("click", closeAllDrawers);
 
-  if (audioFileInput) audioFileInput.addEventListener("change", handleLocalFileUpload);
-  if (drawerAudioFileInput) drawerAudioFileInput.addEventListener("change", handleLocalFileUpload);
-
   // Global Zen Trigger
   let lastTouchTime = 0;
   function handleZenTrigger(e) {
-    if (
-      e.target.closest("button") || e.target.closest("input") || 
-      e.target.closest("#seek-container") || e.target.closest(".playlist-drawer") || 
-      e.target.closest(".playlist-item") || e.target.closest(".draggable-volume-box")
-    ) return;
+    if (isArcadeMode || e.target.closest("button") || e.target.closest("input") || e.target.closest("#seek-container") || e.target.closest(".playlist-drawer") || e.target.closest(".draggable-volume-box")) return;
     toggleZenMode();
   }
 
   window.addEventListener("dblclick", handleZenTrigger);
   window.addEventListener("touchend", (e) => {
+    if (isArcadeMode) return;
     const now = Date.now();
     if (now - lastTouchTime < 320 && now - lastTouchTime > 40) handleZenTrigger(e);
     lastTouchTime = now;
@@ -1610,8 +1712,8 @@ function setupListeners() {
   document.addEventListener("keydown", (e) => {
     if (e.target.tagName === "INPUT") return;
     if (e.code === "Space") { e.preventDefault(); togglePlay(); }
-    else if (e.code === "KeyZ") { e.preventDefault(); toggleZenMode(); }
-    else if (e.code === "Escape" && isZenMode) { exitZenMode(); }
+    else if (e.code === "KeyZ" && !isArcadeMode) { e.preventDefault(); toggleZenMode(); }
+    else if (e.code === "Escape") { if (isZenMode) exitZenMode(); if (isArcadeMode) endArcadeGame(); }
   });
 }
 

@@ -1376,11 +1376,12 @@ async function fetchGlobalHighScore() {
   }
 }
 
-// Unique Tag Reservation & Claiming System
+// Unique Tag Reservation & Direct Rename/Claiming System
 async function claimOrUpdateGameTag(newTag) {
   if (!supabaseClient) return false;
 
   try {
+    // 1. Check if another device owns this exact tag
     const { data: existing, error: checkErr } = await supabaseClient
       .from('arcade_scores')
       .select('nickname, device_id, score')
@@ -1388,35 +1389,46 @@ async function claimOrUpdateGameTag(newTag) {
 
     if (checkErr) throw checkErr;
 
-    let existingScoreForTag = 0;
     if (existing && existing.length > 0) {
       const match = existing[0];
       if (match.device_id && match.device_id !== DEVICE_ID) {
         alert(`⚠️ Game Tag "${newTag}" is already taken by another player! Please pick a unique tag.`);
         return false;
       }
-      existingScoreForTag = match.score || 0;
     }
 
-    if (arcadeNickname && arcadeNickname !== newTag) {
-      await supabaseClient
-        .from('arcade_scores')
-        .delete()
-        .eq('device_id', DEVICE_ID);
-    }
-
-    const finalTagScore = Math.max(personalHighScore || 0, existingScoreForTag);
-
-    const { error: upsertErr } = await supabaseClient
+    // 2. Direct Update / Rename if device already has a record
+    const { data: myDeviceRow } = await supabaseClient
       .from('arcade_scores')
-      .upsert({
-        nickname: newTag,
-        score: finalTagScore,
-        device_id: DEVICE_ID,
-        updated_at: new Date().toISOString()
-      }, { onConflict: 'nickname' });
+      .select('id, score')
+      .eq('device_id', DEVICE_ID)
+      .maybeSingle();
 
-    if (upsertErr) throw upsertErr;
+    if (myDeviceRow) {
+      const finalScore = Math.max(personalHighScore || 0, myDeviceRow.score || 0);
+      const { error: updateErr } = await supabaseClient
+        .from('arcade_scores')
+        .update({
+          nickname: newTag,
+          score: finalScore,
+          updated_at: new Date().toISOString()
+        })
+        .eq('device_id', DEVICE_ID);
+
+      if (updateErr) throw updateErr;
+    } else {
+      // First time registration
+      const { error: insertErr } = await supabaseClient
+        .from('arcade_scores')
+        .upsert({
+          nickname: newTag,
+          score: personalHighScore || 0,
+          device_id: DEVICE_ID,
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'nickname' });
+
+      if (insertErr) throw insertErr;
+    }
 
     arcadeNickname = newTag;
     localStorage.setItem("vibe_arcade_nickname", arcadeNickname);
@@ -1430,7 +1442,7 @@ async function claimOrUpdateGameTag(newTag) {
   }
 }
 
-// Global High Score Sync (Fixed: Only updates if newScore > existing database score)
+// Global High Score Sync
 async function updateGlobalScore(newScore) {
   if (!supabaseClient || !arcadeNickname || newScore <= 0) return;
   try {

@@ -1,23 +1,22 @@
 {
   "name": "Vibe Music Player",
-  "short_name": "Vibe Player",
+  "short_name": "Vibe",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#0b0d10",
   "theme_color": "#0b0d10",
-  "orientation": "portrait-primary",
   "icons": [
     {
       "src": "app-icon.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
       "src": "app-icon.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     }
   ]
 }

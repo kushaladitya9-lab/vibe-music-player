@@ -1381,7 +1381,6 @@ async function claimOrUpdateGameTag(newTag) {
   if (!supabaseClient) return false;
 
   try {
-    // 1. Check if tag already exists in database
     const { data: existing, error: checkErr } = await supabaseClient
       .from('arcade_scores')
       .select('nickname, device_id, score')
@@ -1389,16 +1388,16 @@ async function claimOrUpdateGameTag(newTag) {
 
     if (checkErr) throw checkErr;
 
+    let existingScoreForTag = 0;
     if (existing && existing.length > 0) {
       const match = existing[0];
-      // If claimed by another device
       if (match.device_id && match.device_id !== DEVICE_ID) {
         alert(`⚠️ Game Tag "${newTag}" is already taken by another player! Please pick a unique tag.`);
         return false;
       }
+      existingScoreForTag = match.score || 0;
     }
 
-    // 2. If this device had a previous tag, remove/update it
     if (arcadeNickname && arcadeNickname !== newTag) {
       await supabaseClient
         .from('arcade_scores')
@@ -1406,12 +1405,13 @@ async function claimOrUpdateGameTag(newTag) {
         .eq('device_id', DEVICE_ID);
     }
 
-    // 3. Claim the tag for this device
+    const finalTagScore = Math.max(personalHighScore || 0, existingScoreForTag);
+
     const { error: upsertErr } = await supabaseClient
       .from('arcade_scores')
       .upsert({
         nickname: newTag,
-        score: personalHighScore || 0,
+        score: finalTagScore,
         device_id: DEVICE_ID,
         updated_at: new Date().toISOString()
       }, { onConflict: 'nickname' });
@@ -1430,22 +1430,35 @@ async function claimOrUpdateGameTag(newTag) {
   }
 }
 
-// Global High Score Sync
+// Global High Score Sync (Fixed: Only updates if newScore > existing database score)
 async function updateGlobalScore(newScore) {
   if (!supabaseClient || !arcadeNickname || newScore <= 0) return;
   try {
-    const { error } = await supabaseClient
+    const { data, error } = await supabaseClient
       .from('arcade_scores')
-      .upsert({
-        nickname: arcadeNickname,
-        score: newScore,
-        device_id: DEVICE_ID,
-        updated_at: new Date().toISOString()
-      }, { onConflict: 'nickname' });
+      .select('score')
+      .eq('nickname', arcadeNickname)
+      .maybeSingle();
 
-    if (error) throw error;
-    await fetchGlobalHighScore();
-    updateLeaderboardUI();
+    let existingScore = 0;
+    if (!error && data) {
+      existingScore = data.score || 0;
+    }
+
+    if (newScore > existingScore) {
+      const { error: upsertErr } = await supabaseClient
+        .from('arcade_scores')
+        .upsert({
+          nickname: arcadeNickname,
+          score: newScore,
+          device_id: DEVICE_ID,
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'nickname' });
+
+      if (upsertErr) throw upsertErr;
+      await fetchGlobalHighScore();
+      updateLeaderboardUI();
+    }
   } catch (err) {
     console.warn("Global score update error:", err);
   }
@@ -1623,9 +1636,9 @@ function handleGameOverTrigger() {
   if (arcadeScore > personalHighScore) {
     personalHighScore = arcadeScore;
     localStorage.setItem("vibe_arcade_personal_hs", personalHighScore.toString());
-    updateGlobalScore(arcadeScore);
   }
 
+  updateGlobalScore(arcadeScore);
   updateLeaderboardUI();
 
   document.getElementById("arcade-msg-title").textContent = "Game Over";
@@ -1743,6 +1756,7 @@ function setupListeners() {
   if (tabAllBtn) {
     tabAllBtn.addEventListener("click", () => {
       currentTab = "all";
+      activeCustomPlaylistName = null;
       tabAllBtn.classList.add("active");
       if (tabLikedBtn) tabLikedBtn.classList.remove("active");
       renderPlaylist();
@@ -1753,6 +1767,7 @@ function setupListeners() {
   if (tabLikedBtn) {
     tabLikedBtn.addEventListener("click", () => {
       currentTab = "liked";
+      activeCustomPlaylistName = null;
       tabLikedBtn.classList.add("active");
       if (tabAllBtn) tabAllBtn.classList.remove("active");
       renderPlaylist();

@@ -330,6 +330,15 @@ async function initPlayer() {
   await fetchSupabaseSongs();
   await fetchGlobalHighScore();
   updateLeaderboardUI();
+
+  // Dismiss cinematic splash screen smoothly
+  setTimeout(() => {
+    const splash = document.getElementById("custom-splash-screen");
+    if (splash) {
+      splash.classList.add("fade-out");
+      setTimeout(() => splash.remove(), 600);
+    }
+  }, 1000);
 }
 
 async function loadSavedLocalSongs() {
@@ -1768,7 +1777,6 @@ function setupListeners() {
   if (tabAllBtn) {
     tabAllBtn.addEventListener("click", () => {
       currentTab = "all";
-      activeCustomPlaylistName = null;
       tabAllBtn.classList.add("active");
       if (tabLikedBtn) tabLikedBtn.classList.remove("active");
       renderPlaylist();
@@ -1779,7 +1787,6 @@ function setupListeners() {
   if (tabLikedBtn) {
     tabLikedBtn.addEventListener("click", () => {
       currentTab = "liked";
-      activeCustomPlaylistName = null;
       tabLikedBtn.classList.add("active");
       if (tabAllBtn) tabAllBtn.classList.remove("active");
       renderPlaylist();

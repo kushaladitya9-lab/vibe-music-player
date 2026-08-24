@@ -14,6 +14,17 @@ try {
   console.warn("Supabase init error:", e);
 }
 
+// Device UUID Generator (Ensures unique ownership per device)
+function getOrCreateDeviceId() {
+  let devId = localStorage.getItem("vibe_device_id");
+  if (!devId) {
+    devId = "dev_" + Math.random().toString(36).substring(2, 10) + "_" + Date.now();
+    localStorage.setItem("vibe_device_id", devId);
+  }
+  return devId;
+}
+const DEVICE_ID = getOrCreateDeviceId();
+
 // All 42 Built-in Tracks
 const baseTracks = [
   { id: "s1", title: "Chala Jata Hoon", artist: "", src: "song1.mp3" },
@@ -1037,7 +1048,7 @@ function closeAllDrawers() {
   if (drawerBackdrop) drawerBackdrop.classList.remove("active");
 }
 
-// Draggable Volume Bar (Also Paddle in Game Mode)
+// Draggable Volume Bar (Paddle in Game Mode)
 function setupDraggableVolume() {
   if (!draggableVolume) return;
 
@@ -1239,7 +1250,7 @@ function initWeatherCanvas() {
 function renderCustomPlaylists() {}
 
 // ========================================================
-// 🕹️ ARCADE MODE (LEADERBOARD SIDEBAR & PONG GAME ENGINE)
+// 🕹️ ARCADE MODE (LEADERBOARD SIDEBAR & UNIQUE TAG SYSTEM)
 // ========================================================
 function initArcadeUI() {
   liveScoreHUD = document.createElement("div");
@@ -1270,10 +1281,10 @@ function initArcadeUI() {
   nicknameModal.innerHTML = `
     <div class="glass-modal">
       <i class="ri-user-star-line modal-icon"></i>
-      <h3>Select Game Tag</h3>
-      <p>Choose a name for the Global Leaderboard.</p>
+      <h3>Claim Unique Game Tag</h3>
+      <p>Choose a unique name. No two players can have the same tag!</p>
       <input type="text" id="arcade-nick-input" placeholder="VibeMaster" maxlength="10">
-      <button id="arcade-save-nick-btn" class="glass-btn primary">Save Tag</button>
+      <button id="arcade-save-nick-btn" class="glass-btn primary">Claim Tag</button>
     </div>
   `;
   document.body.appendChild(nicknameModal);
@@ -1312,17 +1323,18 @@ function initArcadeUI() {
   }
 
   if (sidebarSaveNickBtn) {
-    sidebarSaveNickBtn.addEventListener("click", () => {
+    sidebarSaveNickBtn.addEventListener("click", async () => {
       const tag = sidebarNickInput.value.trim();
       if (!tag || tag.length < 2) {
         alert("Tag must be at least 2 characters.");
         return;
       }
-      arcadeNickname = tag;
-      localStorage.setItem("vibe_arcade_nickname", arcadeNickname);
-      if (personalHighScore > 0) updateGlobalScore(personalHighScore);
-      updateLeaderboardUI();
-      alert("Game Tag updated successfully!");
+      sidebarSaveNickBtn.textContent = "Checking...";
+      const isClaimed = await claimOrUpdateGameTag(tag);
+      sidebarSaveNickBtn.textContent = "Save";
+      if (isClaimed) {
+        alert(`Tag "${tag}" claimed successfully!`);
+      }
     });
   }
 }
@@ -1342,12 +1354,13 @@ function updateLiveHUD() {
   if (lEl) lEl.textContent = arcadeLevel;
 }
 
+// Global High Score Fetch
 async function fetchGlobalHighScore() {
   if (!supabaseClient) return;
   try {
     const { data, error } = await supabaseClient
       .from('arcade_scores')
-      .select('*')
+      .select('nickname, score, device_id')
       .order('score', { ascending: false })
       .limit(1);
 
@@ -1359,10 +1372,65 @@ async function fetchGlobalHighScore() {
       globalHighScoreNickname = arcadeNickname;
     }
   } catch (err) {
-    console.warn("Global score fetch:", err);
+    console.warn("Global score fetch error:", err);
   }
 }
 
+// Unique Tag Reservation & Claiming System
+async function claimOrUpdateGameTag(newTag) {
+  if (!supabaseClient) return false;
+
+  try {
+    // 1. Check if tag already exists in database
+    const { data: existing, error: checkErr } = await supabaseClient
+      .from('arcade_scores')
+      .select('nickname, device_id, score')
+      .ilike('nickname', newTag);
+
+    if (checkErr) throw checkErr;
+
+    if (existing && existing.length > 0) {
+      const match = existing[0];
+      // If claimed by another device
+      if (match.device_id && match.device_id !== DEVICE_ID) {
+        alert(`⚠️ Game Tag "${newTag}" is already taken by another player! Please pick a unique tag.`);
+        return false;
+      }
+    }
+
+    // 2. If this device had a previous tag, remove/update it
+    if (arcadeNickname && arcadeNickname !== newTag) {
+      await supabaseClient
+        .from('arcade_scores')
+        .delete()
+        .eq('device_id', DEVICE_ID);
+    }
+
+    // 3. Claim the tag for this device
+    const { error: upsertErr } = await supabaseClient
+      .from('arcade_scores')
+      .upsert({
+        nickname: newTag,
+        score: personalHighScore || 0,
+        device_id: DEVICE_ID,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'nickname' });
+
+    if (upsertErr) throw upsertErr;
+
+    arcadeNickname = newTag;
+    localStorage.setItem("vibe_arcade_nickname", arcadeNickname);
+    await fetchGlobalHighScore();
+    updateLeaderboardUI();
+    return true;
+
+  } catch (err) {
+    alert("Could not claim tag: " + err.message);
+    return false;
+  }
+}
+
+// Global High Score Sync
 async function updateGlobalScore(newScore) {
   if (!supabaseClient || !arcadeNickname || newScore <= 0) return;
   try {
@@ -1371,6 +1439,7 @@ async function updateGlobalScore(newScore) {
       .upsert({
         nickname: arcadeNickname,
         score: newScore,
+        device_id: DEVICE_ID,
         updated_at: new Date().toISOString()
       }, { onConflict: 'nickname' });
 
@@ -1382,18 +1451,18 @@ async function updateGlobalScore(newScore) {
   }
 }
 
-function saveArcadeNickname() {
+async function saveArcadeNickname() {
   const input = document.getElementById("arcade-nick-input");
   const nick = input.value.trim();
   if (!nick || nick.length < 2) {
     alert("Tag must be at least 2 characters.");
     return;
   }
-  arcadeNickname = nick;
-  localStorage.setItem("vibe_arcade_nickname", arcadeNickname);
-  nicknameModal.classList.remove("active");
-  updateLeaderboardUI();
-  requestStartArcade();
+  const isClaimed = await claimOrUpdateGameTag(nick);
+  if (isClaimed) {
+    nicknameModal.classList.remove("active");
+    requestStartArcade();
+  }
 }
 
 function prepareArcadeStart() {

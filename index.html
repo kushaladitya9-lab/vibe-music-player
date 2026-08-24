@@ -55,25 +55,62 @@
     </button>
   </div>
 
+  <!-- Permanent Floating Leaderboard Side-Tab -->
+  <button class="floating-score-tab" id="floating-score-tab" title="View Global & Personal Scores">
+    <i class="ri-trophy-line"></i>
+    <span>Scores</span>
+  </button>
+
+  <!-- Sliding Leaderboard Sidebar Panel -->
+  <div class="leaderboard-backdrop" id="leaderboard-backdrop"></div>
+  <aside class="leaderboard-sidebar" id="leaderboard-sidebar">
+    <div class="leaderboard-header">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <i class="ri-trophy-fill" style="color: var(--accent-gold); font-size: 1.3rem;"></i>
+        <h4>Leaderboard</h4>
+      </div>
+      <button class="close-sidebar-btn" id="close-leaderboard-btn"><i class="ri-close-line"></i></button>
+    </div>
+    
+    <div class="leaderboard-cards-container">
+      <div class="leaderboard-card world-card">
+        <div class="card-label"><i class="ri-fire-fill" style="color: var(--accent-gold);"></i> World Top Rank #1</div>
+        <div class="card-value" id="sidebar-global-score">0</div>
+        <div class="card-user" id="sidebar-global-nick">Player: None yet</div>
+      </div>
+
+      <div class="leaderboard-card personal-card">
+        <div class="card-label"><i class="ri-medal-fill" style="color: #54a0ff;"></i> Your Best Score</div>
+        <div class="card-value" id="sidebar-personal-score">0</div>
+        <div class="card-user" id="sidebar-personal-nick">Tag: Set below</div>
+      </div>
+    </div>
+
+    <div class="nickname-edit-box">
+      <span style="font-size: 0.75rem; color: rgba(255,255,255,0.7);">Your Game Tag:</span>
+      <div style="display: flex; gap: 6px; width: 100%;">
+        <input type="text" id="sidebar-nick-input" placeholder="Set tag..." maxlength="10">
+        <button id="sidebar-save-nick-btn" class="glass-btn primary" style="padding: 6px 14px; font-size: 0.75rem;">Save</button>
+      </div>
+    </div>
+  </aside>
+
   <!-- 3 Transparent Glassmorphic Bouncing Balls -->
-  <!-- Ball 1: Playlists & Songs Drawer -->
   <button class="bounce-ball" id="open-drawer-btn" title="Open Songs & Playlists">
     <i class="ri-play-list-2-fill"></i>
     <span class="float-badge" id="track-count">0</span>
   </button>
 
-  <!-- Ball 2: Wallpapers & Theme Studio -->
   <button class="bounce-ball" id="open-theme-btn" title="Themes, Wallpapers & Rain Mixer">
     <i class="ri-palette-line"></i>
   </button>
 
-  <!-- Ball 3: Quick Local Audio Upload -->
   <button class="bounce-ball" id="quick-upload-btn" title="Add Local Audio (Saved Forever)">
     <i class="ri-folder-music-fill"></i>
   </button>
   <input type="file" id="audio-file-input" accept="audio/*" multiple hidden>
 
-  <!-- Transparent Draggable Volume Pill (Acts as Paddle in Game Mode) -->
+  <!-- Transparent Draggable Volume Pill (Paddle in Game Mode) -->
   <div class="draggable-volume-box" id="draggable-volume" title="Drag anywhere!">
     <i class="ri-volume-up-line" id="volume-icon" title="Mute/Unmute"></i>
     <input type="range" id="volume-slider" min="0" max="1" step="0.01" value="1">
@@ -253,7 +290,6 @@
     </div>
   </div>
 
-  <!-- Primary Audio Node (Ping-Pong node audioB will be created dynamically) -->
   <audio id="main-audio" preload="auto"></audio>
 
   <script>

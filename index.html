@@ -1,304 +1,105 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Vibe Music Player - Aesthetic Indian Lo-Fi & Retro Player</title>
-  <meta name="title" content="Vibe Music Player - Aesthetic Indian Lo-Fi & Retro Player">
-  <meta name="description" content="Aesthetic Indian Tapri & Lo-Fi retro music player with dynamic moods, rain sound synthesizer, zen mode, custom wallpapers, arcade game and cloud synced tracks.">
-  <meta name="author" content="Aditya Kushal">
+  <meta name="description" content="Aesthetic Indian Tapri & Lo-Fi retro music player with dynamic moods, rain sound synthesizer, zen mode, custom wallpapers, and cloud synced tracks." />
 
-  <meta property="og:type" content="website">
-  <meta property="og:title" content="Vibe Music Player - Retro Indian Lo-Fi">
-  <meta property="og:image" content="app-icon.png">
-
-  <!-- PWA Setup -->
-  <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#000000">
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="Vibe Player">
-  <link rel="apple-touch-icon" href="app-icon.png">
-
-  <link rel="stylesheet" href="style.css">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link href="https://cdn.jsdelivr.net/npm/remixicon@4.2.0/fonts/remixicon.css" rel="stylesheet"/>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Remix Icons -->
+  <link href="https://cdn.jsdelivr.net/npm/remixicon@4.2.0/fonts/remixicon.css" rel="stylesheet" />
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  
+  <link rel="stylesheet" href="style.css" />
 </head>
-<body class="mood-sunset">
+<body>
+  <!-- Dynamic Background Canvas & Layer -->
+  <div class="background-overlay" id="bg-overlay"></div>
+  <canvas id="visualizer-canvas"></canvas>
 
-  <!-- Background & Weather Layer -->
-  <div class="app-background" id="app-background"></div>
-  <div class="scrim-overlay"></div>
-  <canvas id="weather-canvas"></canvas>
-
-  <!-- Top Action Container (Mood, Zen, Game & Sync) -->
-  <div class="scene-switcher-container">
-    <button class="scene-btn" id="mood-toggle-btn" title="Click to cycle Mood">
-      <i class="ri-sun-cloudy-line" id="mood-icon"></i>
-      <span id="mood-label">Sunset</span>
-    </button>
-    <button class="scene-btn zen-btn" id="zen-toggle-btn" title="Zen Mode (Hide UI) - Shortcut: Z">
-      <i class="ri-focus-3-line"></i>
-      <span>Zen</span>
-    </button>
-    <button class="scene-btn arcade-btn" id="arcade-toggle-btn" title="Arcade Pong Game Mode">
-      <i class="ri-gamepad-line"></i>
-      <span>Game</span>
-    </button>
-    <button class="scene-btn refresh-btn" id="app-refresh-btn" title="Check Updates & Sync App">
-      <i class="ri-refresh-line" id="refresh-icon"></i>
-    </button>
-  </div>
-
-  <!-- Permanent Floating Leaderboard Side-Tab -->
-  <button class="floating-score-tab" id="floating-score-tab" title="View Global & Personal Scores">
-    <i class="ri-trophy-line"></i>
-    <span>Scores</span>
-  </button>
-
-  <!-- Sliding Leaderboard Sidebar Panel -->
-  <div class="leaderboard-backdrop" id="leaderboard-backdrop"></div>
-  <aside class="leaderboard-sidebar" id="leaderboard-sidebar">
-    <div class="leaderboard-header">
-      <div style="display: flex; align-items: center; gap: 8px;">
-        <i class="ri-trophy-fill" style="color: var(--accent-gold); font-size: 1.3rem;"></i>
-        <h4>Leaderboard</h4>
+  <div class="player-container glass-card">
+    <!-- Top Bar Controls -->
+    <header class="top-nav">
+      <div class="brand">
+        <i class="ri-radio-2-fill brand-icon"></i>
+        <span>Vibe Player</span>
       </div>
-      <button class="close-sidebar-btn" id="close-leaderboard-btn"><i class="ri-close-line"></i></button>
-    </div>
-    
-    <div class="leaderboard-cards-container">
-      <div class="leaderboard-card world-card">
-        <div class="card-label"><i class="ri-fire-fill" style="color: var(--accent-gold);"></i> Rank #1</div>
-        <div class="card-value" id="sidebar-global-score">0</div>
-        <div class="card-user" id="sidebar-global-nick">Player: None yet</div>
+      <div class="top-actions">
+        <button class="icon-btn" id="mood-toggle-btn" title="Change Mood"><i class="ri-sun-cloudy-line"></i></button>
+        <button class="icon-btn" id="rain-synth-btn" title="Rain Synthesizer"><i class="ri-heavy-showers-line"></i></button>
+        <button class="icon-btn" id="zen-mode-btn" title="Zen Mode"><i class="ri-leaf-line"></i></button>
+        <button class="icon-btn" id="game-btn" title="Pong Mode"><i class="ri-gamepad-line"></i></button>
+        <button class="icon-btn" id="playlist-btn" title="Playlist Drawer"><i class="ri-play-list-2-line"></i></button>
       </div>
+    </header>
 
-      <div class="leaderboard-card personal-card">
-        <div class="card-label"><i class="ri-medal-fill" style="color: #54a0ff;"></i> Your Best Score</div>
-        <div class="card-value" id="sidebar-personal-score">0</div>
-        <div class="card-user" id="sidebar-personal-nick">Tag: Set below</div>
-      </div>
-    </div>
-
-    <div class="nickname-edit-box">
-      <span style="font-size: 0.75rem; color: rgba(255,255,255,0.7);">Your Unique Game Tag:</span>
-      <div style="display: flex; gap: 6px; width: 100%;">
-        <input type="text" id="sidebar-nick-input" placeholder="Set tag..." maxlength="10">
-        <button id="sidebar-save-nick-btn" class="glass-btn primary" style="padding: 6px 14px; font-size: 0.75rem;">Save</button>
-      </div>
-    </div>
-  </aside>
-
-  <!-- 3 Transparent Glassmorphic Bouncing Balls -->
-  <button class="bounce-ball" id="open-drawer-btn" title="Open Songs & Playlists">
-    <i class="ri-play-list-2-fill"></i>
-    <span class="float-badge" id="track-count">0</span>
-  </button>
-
-  <button class="bounce-ball" id="open-theme-btn" title="Themes, Wallpapers & Rain Mixer">
-    <i class="ri-palette-line"></i>
-  </button>
-
-  <button class="bounce-ball" id="quick-upload-btn" title="Add Local Audio (Saved Forever)">
-    <i class="ri-folder-music-fill"></i>
-  </button>
-  <input type="file" id="audio-file-input" accept="audio/*" multiple hidden>
-
-  <!-- Transparent Draggable Volume Pill (Paddle in Game Mode) -->
-  <div class="draggable-volume-box" id="draggable-volume" title="Drag anywhere!">
-    <i class="ri-volume-up-line" id="volume-icon" title="Mute/Unmute"></i>
-    <input type="range" id="volume-slider" min="0" max="1" step="0.01" value="1">
-  </div>
-
-  <!-- Main Player Container -->
-  <main class="player-container" id="player-container">
-    <div class="player-content">
-      
-      <!-- Track Meta Section -->
-      <section class="track-meta">
-        <div class="title-like-row">
-          <h1 class="track-title" id="track-title">Loading Track...</h1>
-          <button class="heart-btn" id="main-heart-btn" title="Like this song">
-            <i class="ri-heart-line" id="main-heart-icon"></i>
-          </button>
-        </div>
-        <p class="track-artist" id="track-artist">My Favourite Artist</p>
-      </section>
-
-      <!-- Progress / Seek Bar Section -->
-      <section class="progress-section">
-        <div class="seek-container" id="seek-container">
-          <div class="seek-bar" id="seek-bar">
-            <div class="seek-progress" id="seek-progress"></div>
-            <div class="seek-thumb" id="seek-thumb"></div>
+    <!-- Vinyl / Artwork Display -->
+    <main class="artwork-section">
+      <div class="vinyl-wrapper" id="vinyl-wrapper">
+        <div class="vinyl-disc" id="vinyl-disc">
+          <div class="vinyl-grooves"></div>
+          <div class="vinyl-label" id="vinyl-label">
+            <img src="https://images.unsplash.com/photo-1518609878373-06d740f60d8b?auto=format&fit=crop&w=600&q=80" alt="Album Cover" id="track-art" />
           </div>
         </div>
-        <div class="time-display">
-          <span id="current-time">0:00</span>
-          <span id="duration-time">0:00</span>
+      </div>
+    </main>
+
+    <!-- Track Details & Title Actions -->
+    <section class="track-info">
+      <div class="title-action-row">
+        <h1 class="track-title" id="track-title">Chala Jata Hoon</h1>
+        <div class="action-btn-group">
+          <!-- Like Button -->
+          <button class="title-btn" id="heart-btn" title="Like song">
+            <i class="ri-heart-line" id="heart-icon"></i>
+          </button>
+          <!-- Share Button -->
+          <button class="title-btn" id="share-btn" title="Share link">
+            <i class="ri-share-forward-line" id="share-icon"></i>
+          </button>
         </div>
-      </section>
-
-      <!-- Music Controls Section -->
-      <section class="controls-section" id="controls-section">
-        <button class="ctrl-btn icon-only" id="shuffle-btn" title="Shuffle">
-          <i class="ri-shuffle-line"></i>
-        </button>
-        <button class="ctrl-btn icon-only" id="prev-btn" title="Previous">
-          <i class="ri-skip-back-fill"></i>
-        </button>
-        <button class="ctrl-btn play-pause-btn" id="play-btn" title="Play/Pause">
-          <i class="ri-play-fill" id="play-icon"></i>
-        </button>
-        <button class="ctrl-btn icon-only" id="next-btn" title="Next">
-          <i class="ri-skip-forward-fill"></i>
-        </button>
-        <button class="ctrl-btn icon-only" id="repeat-btn" title="Repeat">
-          <i class="ri-repeat-line"></i>
-        </button>
-      </section>
-
-    </div>
-  </main>
-
-  <!-- Shared Backdrop for Drawers -->
-  <div class="drawer-backdrop" id="drawer-backdrop"></div>
-
-  <!-- 1. SONGS & PLAYLIST DRAWER (BALL 1) -->
-  <aside class="playlist-drawer" id="playlist-drawer">
-    <div class="drawer-handle"></div>
-    
-    <div class="drawer-header">
-      <div>
-        <h3>Songs & Playlists</h3>
-        <p>Edit Info, Local Storage & Cloud Sync</p>
       </div>
-      <button class="close-drawer-btn" id="close-drawer-btn">
-        <i class="ri-close-line"></i>
-      </button>
-    </div>
+      <p class="track-artist" id="track-artist">Kishore Kumar • Lo-Fi Flip</p>
+    </section>
 
-    <!-- Custom Playlists Section -->
-    <div class="custom-picker-section">
-      <div style="display: flex; justify-content: space-between; align-items: center;">
-        <span class="picker-title"><i class="ri-folder-add-line"></i> My Playlists:</span>
-        <button id="create-playlist-btn" class="mini-action-btn">+ New Playlist</button>
+    <!-- Progress / Seek Bar Area -->
+    <section class="progress-section">
+      <div class="progress-bar-container" id="progress-container">
+        <div class="progress-fill" id="progress-fill"></div>
       </div>
-      <div id="custom-playlists-container" class="horizontal-chips-row"></div>
-    </div>
-
-    <!-- Search Bar -->
-    <div class="search-box-container">
-      <i class="ri-search-2-line search-icon"></i>
-      <input type="text" id="playlist-search-input" placeholder="Search track or artist...">
-    </div>
-
-    <!-- Playlist Filter Tabs -->
-    <div class="playlist-tabs">
-      <button class="tab-btn active" id="tab-all-btn">All Tracks</button>
-      <button class="tab-btn" id="tab-liked-btn"><i class="ri-heart-fill"></i> Liked (<span id="liked-count">0</span>)</button>
-    </div>
-
-    <!-- Dual Upload Cards -->
-    <div class="dual-upload-container">
-      <label for="main-audio-input" class="upload-action-card global" id="btn-upload-main">
-        <i class="ri-cloud-upload-fill"></i>
-        <div class="upload-text">
-          <strong>Upload to Main</strong>
-          <small>Cloud sync • PIN protected</small>
-        </div>
-      </label>
-      <input type="file" id="main-audio-input" accept="audio/*" hidden>
-
-      <label for="drawer-audio-file-input" class="upload-action-card local">
-        <i class="ri-hard-drive-2-fill"></i>
-        <div class="upload-text">
-          <strong>Upload Local</strong>
-          <small>Permanent on this device</small>
-        </div>
-      </label>
-      <input type="file" id="drawer-audio-file-input" accept="audio/*" multiple hidden>
-    </div>
-
-    <!-- Scrollable Songs List -->
-    <div class="playlist-scroll-list" id="playlist-scroll-list"></div>
-  </aside>
-
-  <!-- 2. THEME & ATMOSPHERE DRAWER (BALL 2) -->
-  <aside class="playlist-drawer theme-drawer" id="theme-drawer">
-    <div class="drawer-handle"></div>
-    
-    <div class="drawer-header">
-      <div>
-        <h3>Theme & Ambience Studio</h3>
-        <p>Custom Wallpapers, Moods & Rain Synth</p>
+      <div class="time-display">
+        <span id="current-time">0:00</span>
+        <span id="duration">3:24</span>
       </div>
-      <button class="close-drawer-btn" id="close-theme-btn">
-        <i class="ri-close-line"></i>
-      </button>
-    </div>
+    </section>
 
-    <!-- Background Wallpaper Picker -->
-    <div class="custom-picker-section">
-      <span class="picker-title"><i class="ri-image-2-line"></i> Wallpaper Background:</span>
-      <div class="picker-grid">
-        <button class="grid-btn bg-btn active" data-bg="0">Wallpaper 1</button>
-        <button class="grid-btn bg-btn" data-bg="1">Wallpaper 2</button>
-        <button class="grid-btn bg-btn" data-bg="2">Wallpaper 3</button>
-        <button class="grid-btn bg-btn" data-bg="3">Wallpaper 4</button>
-        
-        <label for="custom-bg-input" class="grid-btn bg-btn" id="custom-bg-label" style="grid-column: span 2; cursor: pointer;">
-          <i class="ri-image-add-line"></i> <span id="custom-bg-text">+ Custom Wallpaper (JPG, PNG, WEBP...)</span>
-        </label>
-        <input type="file" id="custom-bg-input" accept="image/*" hidden>
+    <!-- Playback Controls -->
+    <section class="controls-section">
+      <button class="control-btn subtle" id="shuffle-btn" title="Shuffle"><i class="ri-shuffle-line"></i></button>
+      <button class="control-btn" id="prev-btn" title="Previous"><i class="ri-skip-back-fill"></i></button>
+      <button class="control-btn master-play" id="play-btn" title="Play / Pause"><i class="ri-play-fill" id="play-icon"></i></button>
+      <button class="control-btn" id="next-btn" title="Next"><i class="ri-skip-forward-fill"></i></button>
+      <button class="control-btn subtle" id="loop-btn" title="Repeat"><i class="ri-repeat-2-line"></i></button>
+    </section>
+
+    <!-- Sound / Volume Bar (Platform) -->
+    <footer class="bottom-bar">
+      <i class="ri-volume-down-line vol-icon"></i>
+      <div class="volume-slider-container" id="volume-container">
+        <div class="volume-fill" id="volume-fill"></div>
       </div>
-    </div>
-
-    <!-- Mood Effects Picker -->
-    <div class="custom-picker-section" style="margin-top: 6px;">
-      <span class="picker-title"><i class="ri-sparkling-line"></i> Atmospheric Lighting:</span>
-      <div class="picker-grid">
-        <button class="grid-btn mood-btn" data-mood="0"><i class="ri-sun-fill"></i> Sunrise</button>
-        <button class="grid-btn mood-btn active" data-mood="1"><i class="ri-sun-cloudy-line"></i> Sunset</button>
-        <button class="grid-btn mood-btn" data-mood="2"><i class="ri-rainy-line"></i> Monsoon</button>
-        <button class="grid-btn mood-btn" data-mood="3"><i class="ri-moon-clear-line"></i> Midnight</button>
-      </div>
-    </div>
-
-    <!-- Lo-Fi Rain Synthesizer -->
-    <div class="ambient-mixer-card" style="margin-top: 8px;">
-      <div class="ambient-row">
-        <div class="ambient-label">
-          <i class="ri-rainy-line"></i> <span>Rain Lo-Fi Synth</span>
-        </div>
-        <input type="range" id="rain-slider" min="0" max="1" step="0.05" value="0">
-      </div>
-    </div>
-  </aside>
-
-  <!-- Upload Loading Overlay -->
-  <div class="upload-progress-modal" id="upload-modal">
-    <div class="modal-content">
-      <div class="spinner"></div>
-      <p id="upload-status-text">Uploading to Main Playlist...</p>
-    </div>
+      <i class="ri-volume-up-line vol-icon"></i>
+    </footer>
   </div>
 
-  <audio id="main-audio" preload="auto"></audio>
+  <!-- Audio Elements -->
+  <audio id="main-audio" src=""></audio>
+  <audio id="rain-audio" loop src="https://assets.mixkit.co/active_storage/sfx/2520/2520-preview.mp3"></audio>
 
-  <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js').catch(err => console.warn(err));
-      });
-    }
-  </script>
   <script src="script.js"></script>
 </body>
 </html>

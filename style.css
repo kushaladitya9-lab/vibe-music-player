@@ -171,7 +171,7 @@ body.zen-mode .floating-score-tab {
   transform: translateX(-4px);
 }
 
-/* Sliding Leaderboard Sidebar Panel (100% Glassmorphic Transparent) */
+/* Sliding Leaderboard Sidebar Panel */
 .leaderboard-backdrop {
   position: fixed;
   inset: 0;
@@ -429,10 +429,10 @@ body.zen-mode .floating-score-tab {
   padding: 0 10px;
 }
 
-.title-like-row { display: flex; align-items: center; justify-content: center; gap: 10px; }
+.title-like-row { display: flex; align-items: center; justify-content: center; gap: 8px; }
 
 .track-title {
-  font-size: clamp(1.4rem, 4.2vw, 1.95rem);
+  font-size: clamp(1.35rem, 4.2vw, 1.9rem);
   font-weight: 800;
   line-height: 1.25;
   color: var(--text-white);
@@ -444,14 +444,37 @@ body.zen-mode .floating-score-tab {
   overflow: hidden;
 }
 
-.heart-btn {
-  background: transparent; border: none; color: rgba(255, 255, 255, 0.75);
-  font-size: 1.4rem; cursor: pointer; display: grid; place-items: center;
+/* Matching Heart and Share Action Buttons */
+.heart-btn,
+.share-btn {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 1.35rem;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  padding: 2px;
   transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), color 0.2s ease;
 }
 
-.heart-btn:hover { transform: scale(1.25); color: var(--heart-red); }
-.heart-btn.liked { color: var(--heart-red) !important; filter: drop-shadow(0 0 10px rgba(255, 71, 87, 0.8)); }
+.heart-btn:hover,
+.share-btn:hover {
+  transform: scale(1.22);
+}
+
+.heart-btn:hover {
+  color: var(--heart-red);
+}
+
+.share-btn:hover {
+  color: var(--accent-gold);
+}
+
+.heart-btn.liked {
+  color: var(--heart-red) !important;
+  filter: drop-shadow(0 0 10px rgba(255, 71, 87, 0.8));
+}
 
 .track-artist {
   margin-top: 6px;
@@ -625,7 +648,7 @@ body.zen-mode .floating-score-tab {
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* ========================================================
-   ARCADE MODE STYLES (MINIMAL LIVE HUD & TRANSPARENT MODALS)
+   ARCADE MODE STYLES
    ======================================================== */
 .arcade-live-hud {
   position: fixed;

@@ -190,7 +190,7 @@ let shuffleBtn, repeatBtn, seekContainer, seekProgress, seekThumb;
 let currentTimeEl, durationTimeEl, drawerBackdrop, playlistDrawer, themeDrawer;
 let playlistScrollList, trackCountBadge, audioFileInput, drawerAudioFileInput;
 let mainAudioInput, uploadModal, uploadStatusText;
-let mainHeartBtn, mainHeartIcon, likedCountBadge;
+let mainHeartBtn, mainHeartIcon, mainShareBtn, likedCountBadge;
 let moodToggleBtn, moodIcon, moodLabel, zenToggleBtn, arcadeToggleBtn, appRefreshBtn, refreshIcon;
 let searchInput, tabAllBtn, tabLikedBtn, rainSlider;
 let volumeSlider, volumeIcon, draggableVolume;
@@ -262,6 +262,7 @@ async function initPlayer() {
 
   mainHeartBtn = document.getElementById("main-heart-btn");
   mainHeartIcon = document.getElementById("main-heart-icon");
+  mainShareBtn = document.getElementById("main-share-btn");
 
   moodToggleBtn = document.getElementById("mood-toggle-btn");
   moodIcon = document.getElementById("mood-icon");
@@ -720,6 +721,47 @@ function toggleLikeCurrentTrack() {
   updateHeartButton();
   updateLikedCount();
   renderPlaylist();
+}
+
+// Share Current Song (Web Share API + Clipboard Fallback)
+async function shareCurrentTrack() {
+  const currentTrack = playlist[currentTrackIndex];
+  if (!currentTrack) return;
+
+  const trackName = currentTrack.title || "Vibe Track";
+  const artistName = (!currentTrack.artist || currentTrack.artist.trim() === "") ? FALLBACK_ARTIST : currentTrack.artist;
+  const appUrl = window.location.origin + window.location.pathname;
+
+  const shareText = `🎧 Sun raha hoon: "${trackName}" by ${artistName} on Vibe Music Player ✨\nSunne ke liye click karein:`;
+
+  if (navigator.share) {
+    try {
+      await navigator.share({
+        title: `${trackName} - Vibe Player`,
+        text: shareText,
+        url: appUrl
+      });
+    } catch (err) {
+      if (err.name !== 'AbortError') {
+        copyShareFallback(shareText, appUrl);
+      }
+    }
+  } else {
+    copyShareFallback(shareText, appUrl);
+  }
+}
+
+function copyShareFallback(text, url) {
+  const fullMsg = `${text} ${url}`;
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(fullMsg).then(() => {
+      alert("Link copied! Share it on WhatsApp, Instagram or Snapchat.");
+    }).catch(() => {
+      prompt("Copy link to share:", fullMsg);
+    });
+  } else {
+    prompt("Copy link to share:", fullMsg);
+  }
 }
 
 function updateLikedCount() {
@@ -1381,7 +1423,6 @@ async function claimOrUpdateGameTag(newTag) {
   if (!supabaseClient) return false;
 
   try {
-    // 1. Check if another device owns this exact tag
     const { data: existing, error: checkErr } = await supabaseClient
       .from('arcade_scores')
       .select('nickname, device_id, score')
@@ -1397,7 +1438,6 @@ async function claimOrUpdateGameTag(newTag) {
       }
     }
 
-    // 2. Direct Update / Rename if device already has a record
     const { data: myDeviceRow } = await supabaseClient
       .from('arcade_scores')
       .select('id, score')
@@ -1417,7 +1457,6 @@ async function claimOrUpdateGameTag(newTag) {
 
       if (updateErr) throw updateErr;
     } else {
-      // First time registration
       const { error: insertErr } = await supabaseClient
         .from('arcade_scores')
         .upsert({
@@ -1722,6 +1761,7 @@ function setupListeners() {
   }
 
   if (mainHeartBtn) mainHeartBtn.addEventListener("click", toggleLikeCurrentTrack);
+  if (mainShareBtn) mainShareBtn.addEventListener("click", shareCurrentTrack);
   if (moodToggleBtn) moodToggleBtn.addEventListener("click", cycleMood);
   if (zenToggleBtn) zenToggleBtn.addEventListener("click", toggleZenMode);
 
@@ -1779,7 +1819,6 @@ function setupListeners() {
   if (tabLikedBtn) {
     tabLikedBtn.addEventListener("click", () => {
       currentTab = "liked";
-      activeCustomPlaylistName = null;
       tabLikedBtn.classList.add("active");
       if (tabAllBtn) tabAllBtn.classList.remove("active");
       renderPlaylist();

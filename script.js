@@ -1854,37 +1854,3 @@ function setupListeners() {
 }
 
 document.addEventListener("DOMContentLoaded", initPlayer);
-// --- Direct URL Share Feature ---
-const shareBtn = document.getElementById('share-btn');
-
-if (shareBtn) {
-  shareBtn.addEventListener('click', async () => {
-    const shareUrl = window.location.href; // Direct link to player
-
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          url: shareUrl
-        });
-      } catch (err) {
-        // User cancelled share popup
-      }
-    } else {
-      // Fallback for Desktop / Unsupported Browsers (Clipboard Copy)
-      try {
-        await navigator.clipboard.writeText(shareUrl);
-        
-        // Quick visual feedback on icon
-        const shareIcon = document.getElementById('share-icon');
-        if (shareIcon) {
-          shareIcon.className = 'ri-check-line';
-          setTimeout(() => {
-            shareIcon.className = 'ri-share-forward-line';
-          }, 1500);
-        }
-      } catch (err) {
-        console.error('Failed to copy link:', err);
-      }
-    }
-  });
-}

@@ -26,7 +26,7 @@ body {
   height: 100dvh;
   overflow: hidden;
   position: relative;
-  background-color: #000000;
+  background-color: #0b0d10;
   color: var(--text-white);
   display: flex;
   justify-content: center;
@@ -155,7 +155,7 @@ body.zen-mode .floating-score-tab {
   font-size: 0.78rem;
   font-weight: 700;
   cursor: pointer;
-  z-index: 9999;
+  z-index: 9990;
   box-shadow: -4px 6px 20px rgba(0, 0, 0, 0.4);
   transition: var(--transition);
 }
@@ -366,7 +366,7 @@ body.zen-mode .floating-score-tab {
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
 }
 
-/* Transparent Glassmorphic Volume Pill */
+/* Transparent Glassmorphic Volume Pill (Paddle in Game Mode) */
 .draggable-volume-box {
   position: fixed;
   top: 0;
@@ -486,8 +486,8 @@ body.zen-mode .floating-score-tab {
 
 /* Progress Section */
 .progress-section { width: 100%; margin-bottom: clamp(18px, 3.5vh, 26px); }
-.seek-container { width: 100%; padding: 10px 0; cursor: pointer; position: relative; }
-.seek-bar { width: 100%; height: 4px; background: var(--progress-bg); border-radius: 4px; position: relative; transition: background 0.3s ease, box-shadow 0.3s ease; }
+.seek-container { width: 100%; padding: 10px 0; cursor: pointer; }
+.seek-bar { width: 100%; height: 4px; background: var(--progress-bg); border-radius: 4px; position: relative; }
 .seek-progress { width: 0%; height: 100%; background: var(--progress-fill); border-radius: 4px; box-shadow: 0 0 8px rgba(255, 255, 255, 0.6); }
 .seek-thumb {
   position: absolute; top: 50%; left: 0%; transform: translate(-50%, -50%);
@@ -643,32 +643,13 @@ body.zen-mode .floating-score-tab {
 /* Upload Modal */
 .upload-progress-modal { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.75); backdrop-filter: blur(10px); z-index: 10000; display: none; place-items: center; }
 .upload-progress-modal.active { display: grid; }
-.modal-content { background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.2); padding: 24px 30px; border-radius: 20px; display: flex; flex-direction: column; align-items: center; gap: 14px; }
+.modal-content { background: rgba(25, 30, 40, 0.95); border: 1px solid rgba(255, 255, 255, 0.2); padding: 24px 30px; border-radius: 20px; display: flex; flex-direction: column; align-items: center; gap: 14px; }
 .spinner { width: 36px; height: 36px; border: 3px solid rgba(255, 255, 255, 0.2); border-top-color: var(--accent-gold); border-radius: 50%; animation: spin 0.8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* ========================================================
-   GAMES HUB MODALS & ARCADE COMMON
+   ARCADE MODE STYLES
    ======================================================== */
-.game-hub-backdrop {
-  position: fixed; inset: 0; background: rgba(0, 0, 0, 0.65);
-  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
-  z-index: 10005; display: none; place-items: center; opacity: 0; transition: opacity 0.3s ease;
-}
-.game-hub-backdrop.active { display: grid; opacity: 1; pointer-events: auto; }
-.game-hub-modal { width: 90%; max-width: 380px; padding: 25px 20px; }
-.game-options-container { display: flex; flex-direction: column; gap: 12px; margin-top: 15px; width: 100%; }
-.game-select-card {
-  display: flex; align-items: center; gap: 15px; background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.2); padding: 12px 16px; border-radius: 16px;
-  cursor: pointer; transition: var(--transition); text-align: left; width: 100%; color: #fff;
-}
-.game-select-card:hover { background: rgba(255,255,255,0.12); border-color: var(--accent-gold); transform: translateY(-3px); }
-.game-card-icon { font-size: 2rem; display: grid; place-items: center; }
-.game-card-info h4 { font-size: 1rem; font-weight: 800; margin-bottom: 2px; }
-.game-card-info span { font-size: 0.75rem; color: rgba(255,255,255,0.6); }
-
-/* Arcade Mode Live HUD & Modals */
 .arcade-live-hud {
   position: fixed;
   top: 18px;
@@ -689,6 +670,7 @@ body.zen-mode .floating-score-tab {
   color: #fff;
   pointer-events: none;
 }
+
 .arcade-live-hud.active { display: flex; }
 
 .arcade-msg-overlay,
@@ -702,6 +684,7 @@ body.zen-mode .floating-score-tab {
   display: none;
   place-items: center;
 }
+
 .arcade-msg-overlay.active,
 .arcade-modal-backdrop.active { display: grid; }
 
@@ -764,200 +747,3 @@ body.zen-mode .floating-score-tab {
 .glass-btn.primary { background: var(--accent-gold); color: #000; border-color: var(--accent-gold); }
 .glass-btn.danger { background: rgba(255, 71, 87, 0.2); border-color: rgba(255, 71, 87, 0.4); color: #ff4757; }
 .glass-btn:hover { transform: scale(1.05); }
-
-/* ========================================================
-   MERGE GAME SPECIFIC UI
-   ======================================================== */
-.merge-hud {
-  display: none;
-  width: 100%;
-  padding: 4px 0;
-  margin-bottom: 6px;
-  align-items: center;
-  justify-content: space-between;
-}
-
-body.merge-mode-active .merge-hud {
-  display: flex;
-}
-
-.merge-score-pill {
-  background: rgba(0, 0, 0, 0.45);
-  padding: 6px 14px;
-  border-radius: 50px;
-  font-weight: 800;
-  font-size: 0.95rem;
-  border: 1px solid rgba(255, 222, 89, 0.5);
-  color: var(--accent-gold);
-}
-
-.merge-preview-container {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: rgba(255, 255, 255, 0.08);
-  padding: 5px 12px;
-  border-radius: 50px;
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  backdrop-filter: blur(16px);
-}
-
-.preview-bubble-slot {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  background: rgba(255, 255, 255, 0.12);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  font-size: 0.95rem;
-  transition: transform 0.2s ease;
-}
-
-.preview-bubble-slot.current-drop {
-  width: 36px;
-  height: 36px;
-  font-size: 1.25rem;
-  border-color: var(--accent-gold);
-  background: rgba(255, 222, 89, 0.18);
-  transform: scale(1.08);
-}
-
-.merge-quit-btn {
-  background: rgba(255, 71, 87, 0.2);
-  border: 1px solid rgba(255, 71, 87, 0.5);
-  color: #ff4757;
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  font-size: 1.2rem;
-  cursor: pointer;
-  display: grid;
-  place-items: center;
-  transition: var(--transition);
-}
-.merge-quit-btn:hover { transform: scale(1.1); background: rgba(255, 71, 87, 0.35); }
-
-/* Hide standard buttons in Merge Mode */
-body.merge-mode-active .title-like-row .heart-btn,
-body.merge-mode-active .title-like-row .share-btn,
-body.merge-mode-active .time-display,
-body.merge-mode-active .controls-section,
-body.merge-mode-active .scene-switcher-container,
-body.merge-mode-active .floating-score-tab,
-body.merge-mode-active .bounce-ball {
-  display: none !important;
-  pointer-events: none !important;
-}
-
-/* Volume Bar in Merge Mode: Preserves original shape/width, centered & elevated */
-body.merge-mode-active .draggable-volume-box {
-  position: fixed !important;
-  top: auto !important;
-  bottom: 54px !important;
-  left: 50% !important;
-  transform: translateX(-50%) !important;
-  width: 180px !important;
-  border-color: var(--accent-gold) !important;
-  box-shadow: 0 0 20px rgba(255, 222, 89, 0.4) !important;
-  z-index: 9998;
-}
-
-/* Evolution Sequence Bar */
-.merge-evolution-bar {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 46px;
-  background: rgba(0, 0, 0, 0.65);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border-top: 1px solid rgba(255, 255, 255, 0.15);
-  display: none;
-  align-items: center;
-  justify-content: space-evenly;
-  padding: 0 8px;
-  z-index: 9998;
-  overflow-x: auto;
-}
-
-body.merge-mode-active .merge-evolution-bar {
-  display: flex;
-}
-
-.evolution-chip {
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  flex-shrink: 0;
-}
-
-.evolution-icon-circle {
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1.5px solid;
-  display: grid;
-  place-items: center;
-  font-size: 0.8rem;
-}
-
-.evolution-arrow {
-  color: rgba(255, 255, 255, 0.3);
-  font-size: 0.75rem;
-}
-
-/* Seekbar as the Danger Ceiling */
-body.merge-mode-active .seek-container {
-  padding: 0;
-  margin-bottom: 8px;
-}
-body.merge-mode-active .seek-progress,
-body.merge-mode-active .seek-thumb {
-  display: none;
-}
-body.merge-mode-active .seek-bar.danger-warning {
-  background: #ff4757 !important;
-  box-shadow: 0 0 16px #ff4757 !important;
-}
-
-/* Merge Dropper & Physics Objects */
-.merge-dropper-guide {
-  position: absolute;
-  width: 2px;
-  border-left: 2px dotted rgba(255, 255, 255, 0.4);
-  display: none;
-  z-index: 9994;
-  pointer-events: none;
-}
-body.merge-mode-active .merge-dropper-guide { display: block; }
-
-#merge-physics-container {
-  position: absolute;
-  inset: 0;
-  z-index: 9993;
-  pointer-events: none;
-  overflow: hidden;
-  display: none;
-}
-body.merge-mode-active #merge-physics-container { display: block; }
-
-.merge-dom-body {
-  position: absolute;
-  top: 0;
-  left: 0;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  background: rgba(255, 255, 255, 0.15);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 2px solid;
-  color: #fff;
-  box-shadow: inset 0 0 15px rgba(255,255,255,0.2), 0 5px 15px rgba(0,0,0,0.4);
-  transform-origin: center center;
-  will-change: transform;
-  pointer-events: none;
-}

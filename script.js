@@ -14,7 +14,7 @@ try {
   console.warn("Supabase init error:", e);
 }
 
-// Device UUID Generator
+// Device UUID Generator (Ensures unique ownership per device)
 function getOrCreateDeviceId() {
   let devId = localStorage.getItem("vibe_device_id");
   if (!devId) {
@@ -25,7 +25,7 @@ function getOrCreateDeviceId() {
 }
 const DEVICE_ID = getOrCreateDeviceId();
 
-// All 42 Built-in Tracks (Fully Expanded)
+// All 42 Built-in Tracks
 const baseTracks = [
   { id: "s1", title: "Chala Jata Hoon", artist: "", src: "song1.mp3" },
   { id: "s2", title: "Tera Mera Pyar Amar", artist: "", src: "song2.mp3" },
@@ -206,10 +206,9 @@ let sidebarNickInput, sidebarSaveNickBtn;
 // Bouncing Balls (Normal Mode)
 let btnDrawer, btnTheme, btnUpload;
 let balls = [];
-let normalPhysicsRAF = null;
 
 // ========================================================
-// 🕹️ ARCADE & MERGE MODE GLOBALS
+// 🕹️ ARCADE MODE STATE & COLLISION
 // ========================================================
 let isArcadeMode = false;
 let arcadeScore = 0;
@@ -221,28 +220,7 @@ let arcadeNickname = localStorage.getItem("vibe_arcade_nickname") || null;
 
 const arcadeGravity = 0.09;
 let arcadeBalls = [];
-let liveScoreHUD, gameMsgOverlay, nicknameModal, gameHubModal;
-
-// Merge Game Globals
-let isMergeGameMode = false;
-let mergeEngine, mergeRunner;
-let mergeBodiesMap = {}; 
-let mergeQueue = []; 
-let dropReady = true;
-let dangerTimer = null;
-
-const MERGE_TIERS = [
-  { tier: 1, size: 36, icon: 'ri-music-2-line', color: '#ffffff', score: 2 },
-  { tier: 2, size: 48, icon: 'ri-heart-fill', color: '#ff4757', score: 4 },
-  { tier: 3, size: 60, icon: 'ri-share-forward-fill', color: '#54a0ff', score: 8 },
-  { tier: 4, size: 74, icon: 'ri-repeat-line', color: '#2ed573', score: 16 },
-  { tier: 5, size: 90, icon: 'ri-shuffle-line', color: '#ffa502', score: 32 },
-  { tier: 6, size: 108, icon: 'ri-skip-forward-fill', color: '#ff7f50', score: 64 },
-  { tier: 7, size: 128, icon: 'ri-play-circle-fill', color: '#eccc68', score: 128 },
-  { tier: 8, size: 150, icon: 'ri-play-list-2-fill', color: '#ff6b81', score: 256 },
-  { tier: 9, size: 174, icon: 'ri-palette-fill', color: '#7bed9f', score: 512 },
-  { tier: 10, size: 200, icon: 'ri-disc-fill', color: '#ffde59', score: 1000 }
-];
+let liveScoreHUD, gameMsgOverlay, nicknameModal;
 
 // ========================================================
 // INITIALIZATION
@@ -317,7 +295,7 @@ async function initPlayer() {
   btnTheme = document.getElementById("open-theme-btn");
   btnUpload = document.getElementById("quick-upload-btn");
 
-  // Leaderboard & Hub DOM
+  // Leaderboard DOM
   floatingScoreTab = document.getElementById("floating-score-tab");
   leaderboardBackdrop = document.getElementById("leaderboard-backdrop");
   leaderboardSidebar = document.getElementById("leaderboard-sidebar");
@@ -327,10 +305,6 @@ async function initPlayer() {
   sidebarPersonalNick = document.getElementById("sidebar-personal-nick");
   sidebarNickInput = document.getElementById("sidebar-nick-input");
   sidebarSaveNickBtn = document.getElementById("sidebar-save-nick-btn");
-  
-  gameHubModal = document.getElementById("game-hub-modal");
-  nicknameModal = document.getElementById("arcade-nickname-modal");
-  gameMsgOverlay = document.getElementById("arcade-msg-overlay");
 
   if (currentBgIndex === "custom" && customBgData) {
     applyCustomBackground(customBgData);
@@ -342,14 +316,8 @@ async function initPlayer() {
   updateLikedCount();
   
   await loadSavedLocalSongs();
-  await fetchSupabaseSongs();
   rebuildPlaylist();
-
-  // Auto-play a random song on startup
-  const randomInitialIndex = Math.floor(Math.random() * playlist.length);
-  loadTrack(randomInitialIndex);
-  playTrack();
-
+  loadTrack(currentTrackIndex);
   setupListeners();
   setupMediaSession();
   setupDualAudioListeners(audioA);
@@ -359,9 +327,10 @@ async function initPlayer() {
   initWeatherCanvas();
   initArcadeUI();
   setupSwipeGestures();
-  renderEvolutionBar();
 
-  fetchGlobalHighScore().then(updateLeaderboardUI);
+  await fetchSupabaseSongs();
+  await fetchGlobalHighScore();
+  updateLeaderboardUI();
 }
 
 async function loadSavedLocalSongs() {
@@ -566,7 +535,7 @@ function playTrack() {
       updateMediaSessionMetadata(playlist[currentTrackIndex]);
       preloadStandbyTrack();
     }).catch((err) => {
-      console.warn("Autoplay needs user interaction:", err);
+      console.warn("Playback needed interaction:", err);
     });
   }
 }
@@ -697,7 +666,7 @@ function setupDualAudioListeners(audioNode) {
 }
 
 function setProgress(e) {
-  if (!seekContainer || !activeAudio || isMergeGameMode) return;
+  if (!seekContainer || !activeAudio) return;
   const rect = seekContainer.getBoundingClientRect();
   const clickX = e.clientX - rect.left;
   const width = rect.width;
@@ -754,34 +723,44 @@ function toggleLikeCurrentTrack() {
   renderPlaylist();
 }
 
-// Share Current Song (URL ONLY, Clean Link)
+// Share Current Song (Web Share API + Clipboard Fallback)
 async function shareCurrentTrack() {
-  const appUrl = "https://kushaladitya9-lab.github.io/vibe-music-player/";
+  const currentTrack = playlist[currentTrackIndex];
+  if (!currentTrack) return;
+
+  const trackName = currentTrack.title || "Vibe Track";
+  const artistName = (!currentTrack.artist || currentTrack.artist.trim() === "") ? FALLBACK_ARTIST : currentTrack.artist;
+  const appUrl = window.location.origin + window.location.pathname;
+
+  const shareText = `🎧 Sun raha hoon: "${trackName}" by ${artistName} on Vibe Music Player ✨\nSunne ke liye click karein:`;
 
   if (navigator.share) {
     try {
       await navigator.share({
+        title: `${trackName} - Vibe Player`,
+        text: shareText,
         url: appUrl
       });
     } catch (err) {
       if (err.name !== 'AbortError') {
-        copyShareFallback(appUrl);
+        copyShareFallback(shareText, appUrl);
       }
     }
   } else {
-    copyShareFallback(appUrl);
+    copyShareFallback(shareText, appUrl);
   }
 }
 
-function copyShareFallback(url) {
+function copyShareFallback(text, url) {
+  const fullMsg = `${text} ${url}`;
   if (navigator.clipboard) {
-    navigator.clipboard.writeText(url).then(() => {
+    navigator.clipboard.writeText(fullMsg).then(() => {
       alert("Link copied! Share it on WhatsApp, Instagram or Snapchat.");
     }).catch(() => {
-      prompt("Copy link to share:", url);
+      prompt("Copy link to share:", fullMsg);
     });
   } else {
-    prompt("Copy link to share:", url);
+    prompt("Copy link to share:", fullMsg);
   }
 }
 
@@ -994,7 +973,7 @@ function setupSwipeGestures() {
   let touchStartX = 0;
   window.addEventListener("touchstart", (e) => { touchStartX = e.touches[0].clientX; }, { passive: true });
   window.addEventListener("touchend", (e) => {
-    if (isArcadeMode || isMergeGameMode || e.target.closest("#volume-slider") || e.target.closest("#seek-container") || e.target.closest(".playlist-drawer")) return;
+    if (isArcadeMode || e.target.closest("#volume-slider") || e.target.closest("#seek-container") || e.target.closest(".playlist-drawer")) return;
     const touchEndX = e.changedTouches[0].clientX;
     const diffX = touchEndX - touchStartX;
     if (Math.abs(diffX) > 60) {
@@ -1111,7 +1090,7 @@ function closeAllDrawers() {
   if (drawerBackdrop) drawerBackdrop.classList.remove("active");
 }
 
-// Draggable Volume Bar
+// Draggable Volume Bar (Paddle in Game Mode)
 function setupDraggableVolume() {
   if (!draggableVolume) return;
 
@@ -1121,15 +1100,14 @@ function setupDraggableVolume() {
   let isDragging = false;
 
   const getRestrictedY = (y) => {
-    if (isArcadeMode) return window.innerHeight - draggableVolume.offsetHeight - 25;
-    if (isMergeGameMode) return window.innerHeight - 54;
-    return y;
+    if (!isArcadeMode) return y;
+    return window.innerHeight - draggableVolume.offsetHeight - 25;
   };
 
   draggableVolume.style.transform = `translate3d(${volCurrentX}px, ${getRestrictedY(volCurrentY)}px, 0)`;
 
   function onPointerDown(e) {
-    if (e.target === volumeSlider || isMergeGameMode) return;
+    if (e.target === volumeSlider) return;
     isDragging = true;
     startX = e.clientX - volCurrentX;
     startY = e.clientY - volCurrentY;
@@ -1137,7 +1115,7 @@ function setupDraggableVolume() {
   }
 
   function onPointerMove(e) {
-    if (!isDragging || isMergeGameMode) return;
+    if (!isDragging) return;
     let newX = e.clientX - startX;
     let newY = e.clientY - startY;
 
@@ -1219,18 +1197,17 @@ function setupBouncingBalls() {
   ].filter(b => b.el !== null);
 
   balls.forEach(ball => {
-    ball.el.addEventListener("mouseenter", () => { if (!isArcadeMode && !isMergeGameMode) ball.isPaused = true; });
-    ball.el.addEventListener("mouseleave", () => { if (!isArcadeMode && !isMergeGameMode) ball.isPaused = false; });
-    ball.el.addEventListener("touchstart", () => { if (!isArcadeMode && !isMergeGameMode) ball.isPaused = true; }, { passive: true });
-    ball.el.addEventListener("touchend", () => { if (!isArcadeMode && !isMergeGameMode) setTimeout(() => { ball.isPaused = false; }, 800); });
+    ball.el.addEventListener("mouseenter", () => { if (!isArcadeMode) ball.isPaused = true; });
+    ball.el.addEventListener("mouseleave", () => { if (!isArcadeMode) ball.isPaused = false; });
+    ball.el.addEventListener("touchstart", () => { if (!isArcadeMode) ball.isPaused = true; }, { passive: true });
+    ball.el.addEventListener("touchend", () => { if (!isArcadeMode) setTimeout(() => { ball.isPaused = false; }, 800); });
   });
 
-  if (normalPhysicsRAF) cancelAnimationFrame(normalPhysicsRAF);
-  normalPhysicsRAF = requestAnimationFrame(updateNormalPhysics);
+  requestAnimationFrame(updateNormalPhysics);
 }
 
 function updateNormalPhysics() {
-  if (isArcadeMode || isMergeGameMode) return;
+  if (isArcadeMode) return;
 
   const winW = window.innerWidth;
   const winH = window.innerHeight;
@@ -1284,7 +1261,7 @@ function updateNormalPhysics() {
     });
   }
 
-  normalPhysicsRAF = requestAnimationFrame(updateNormalPhysics);
+  requestAnimationFrame(updateNormalPhysics);
 }
 
 // Weather Canvas
@@ -1315,29 +1292,9 @@ function initWeatherCanvas() {
 function renderCustomPlaylists() {}
 
 // ========================================================
-// 🕹️ GAMES HUB, LEADERBOARD, PONG & MERGE MODE
+// 🕹️ ARCADE MODE (LEADERBOARD SIDEBAR & UNIQUE TAG SYSTEM)
 // ========================================================
 function initArcadeUI() {
-  document.getElementById("arcade-toggle-btn").addEventListener("click", () => {
-    gameHubModal.classList.add("active");
-  });
-  
-  document.getElementById("close-hub-btn").addEventListener("click", () => {
-    gameHubModal.classList.remove("active");
-  });
-
-  document.getElementById("start-pong-btn").addEventListener("click", () => {
-    gameHubModal.classList.remove("active");
-    if (!arcadeNickname) nicknameModal.classList.add("active");
-    else requestStartArcade();
-  });
-
-  document.getElementById("start-merge-btn").addEventListener("click", () => {
-    gameHubModal.classList.remove("active");
-    if (!arcadeNickname) nicknameModal.classList.add("active");
-    else startMergeGame();
-  });
-
   liveScoreHUD = document.createElement("div");
   liveScoreHUD.className = "arcade-live-hud";
   liveScoreHUD.innerHTML = `
@@ -1346,52 +1303,82 @@ function initArcadeUI() {
   `;
   document.body.appendChild(liveScoreHUD);
 
-  document.getElementById("arcade-start-btn").addEventListener("click", () => {
-    gameMsgOverlay.classList.remove("active");
-    if (isMergeGameMode) {
-      startMergeGame();
-    } else {
-      requestStartArcade();
-    }
-  });
+  gameMsgOverlay = document.createElement("div");
+  gameMsgOverlay.className = "arcade-msg-overlay";
+  gameMsgOverlay.innerHTML = `
+    <div class="msg-content">
+      <i class="ri-gamepad-line modal-icon"></i>
+      <h1 id="arcade-msg-title">Component Arcade</h1>
+      <p id="arcade-msg-body">Use your sound bar as a paddle! Don't let the components fall into the bottom void.</p>
+      <div class="modal-buttons-row">
+        <button id="arcade-start-btn" class="glass-btn primary">Start Vibe</button>
+        <button id="arcade-exit-btn" class="glass-btn danger" style="display:none;">Exit Game</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(gameMsgOverlay);
 
+  nicknameModal = document.createElement("div");
+  nicknameModal.className = "arcade-modal-backdrop";
+  nicknameModal.innerHTML = `
+    <div class="glass-modal">
+      <i class="ri-user-star-line modal-icon"></i>
+      <h3>Claim Unique Game Tag</h3>
+      <p>Choose a unique name. No two players can have the same tag!</p>
+      <input type="text" id="arcade-nick-input" placeholder="VibeMaster" maxlength="10">
+      <button id="arcade-save-nick-btn" class="glass-btn primary">Claim Tag</button>
+    </div>
+  `;
+  document.body.appendChild(nicknameModal);
+
+  document.getElementById("arcade-start-btn").addEventListener("click", prepareArcadeStart);
   document.getElementById("arcade-exit-btn").addEventListener("click", () => {
     gameMsgOverlay.classList.remove("active");
     endArcadeGame();
   });
-
   document.getElementById("arcade-save-nick-btn").addEventListener("click", saveArcadeNickname);
-  
-  if (sidebarSaveNickBtn) {
-    sidebarSaveNickBtn.addEventListener("click", async () => {
-      const tag = sidebarNickInput.value.trim();
-      if (!tag || tag.length < 2) { alert("Tag must be at least 2 characters."); return; }
-      sidebarSaveNickBtn.textContent = "Checking...";
-      const isClaimed = await claimOrUpdateGameTag(tag);
-      sidebarSaveNickBtn.textContent = "Save";
-      if (isClaimed) alert(`Tag "${tag}" claimed successfully!`);
-    });
-  }
 
+  // Leaderboard Side-Tab Handlers
   if (floatingScoreTab) {
     floatingScoreTab.addEventListener("click", () => {
-      updateLeaderboardUI();
-      leaderboardSidebar.classList.add("active");
-      leaderboardBackdrop.classList.add("active");
-      fetchGlobalHighScore().then(updateLeaderboardUI);
+      fetchGlobalHighScore().then(() => {
+        updateLeaderboardUI();
+        leaderboardSidebar.classList.add("active");
+        leaderboardBackdrop.classList.add("active");
+      });
     });
   }
 
   const closeLeaderboardBtn = document.getElementById("close-leaderboard-btn");
-  if (closeLeaderboardBtn) closeLeaderboardBtn.addEventListener("click", () => {
+  if (closeLeaderboardBtn) {
+    closeLeaderboardBtn.addEventListener("click", () => {
       leaderboardSidebar.classList.remove("active");
       leaderboardBackdrop.classList.remove("active");
-  });
+    });
+  }
 
-  if (leaderboardBackdrop) leaderboardBackdrop.addEventListener("click", () => {
+  if (leaderboardBackdrop) {
+    leaderboardBackdrop.addEventListener("click", () => {
       leaderboardSidebar.classList.remove("active");
       leaderboardBackdrop.classList.remove("active");
-  });
+    });
+  }
+
+  if (sidebarSaveNickBtn) {
+    sidebarSaveNickBtn.addEventListener("click", async () => {
+      const tag = sidebarNickInput.value.trim();
+      if (!tag || tag.length < 2) {
+        alert("Tag must be at least 2 characters.");
+        return;
+      }
+      sidebarSaveNickBtn.textContent = "Checking...";
+      const isClaimed = await claimOrUpdateGameTag(tag);
+      sidebarSaveNickBtn.textContent = "Save";
+      if (isClaimed) {
+        alert(`Tag "${tag}" claimed successfully!`);
+      }
+    });
+  }
 }
 
 function updateLeaderboardUI() {
@@ -1494,7 +1481,7 @@ async function claimOrUpdateGameTag(newTag) {
   }
 }
 
-// Global High Score Sync (Shared for Pong & Merge)
+// Global High Score Sync
 async function updateGlobalScore(newScore) {
   if (!supabaseClient || !arcadeNickname || newScore <= 0) return;
   try {
@@ -1538,17 +1525,23 @@ async function saveArcadeNickname() {
   const isClaimed = await claimOrUpdateGameTag(nick);
   if (isClaimed) {
     nicknameModal.classList.remove("active");
+    requestStartArcade();
   }
 }
 
-// --------------------------------------------------------
-// ARCADE PONG LOGIC
-// --------------------------------------------------------
+function prepareArcadeStart() {
+  gameMsgOverlay.classList.remove("active");
+  if (!arcadeNickname) {
+    nicknameModal.classList.add("active");
+  } else {
+    requestStartArcade();
+  }
+}
+
 async function requestStartArcade() {
   exitZenMode();
   closeAllDrawers();
   isArcadeMode = true;
-  isMergeGameMode = false;
   arcadeScore = 0;
   arcadeLevel = 1;
   arcadeBalls = [];
@@ -1556,7 +1549,7 @@ async function requestStartArcade() {
   liveScoreHUD.classList.add("active");
   draggableVolume.classList.add("game-paddle-mode");
 
-  document.querySelectorAll(".bounce-ball").forEach(b => { b.style.display = "none"; });
+  [btnDrawer, btnTheme, btnUpload].forEach(b => { if (b) b.style.display = "none"; });
 
   await fetchGlobalHighScore();
   updateLiveHUD();
@@ -1574,7 +1567,15 @@ function spawnDynamicArcadeBall(id, iconCls, startX, startY, vx, vy) {
   ballEl.innerHTML = `<i class="${iconCls}"></i>`;
   document.body.appendChild(ballEl);
 
-  arcadeBalls.push({ id: id, el: ballEl, x: startX, y: startY, vx: vx, vy: vy, size: 52 });
+  arcadeBalls.push({
+    id: id,
+    el: ballEl,
+    x: startX,
+    y: startY,
+    vx: vx,
+    vy: vy,
+    size: 52
+  });
 }
 
 function checkArcadeProgression() {
@@ -1594,11 +1595,19 @@ function checkArcadeProgression() {
 
 function triggerArcadeLevelSpawn(level) {
   const winW = window.innerWidth;
-  if (level === 2) spawnDynamicArcadeBall("theme_ball", "ri-palette-line", Math.random() * (winW - 100) + 50, 100, -3.5, -4);
-  else if (level === 3) spawnDynamicArcadeBall("upload_ball", "ri-folder-music-fill", Math.random() * (winW - 100) + 50, 100, 3.8, -4);
-  else if (level === 4) { if (playBtn) playBtn.style.opacity = "0.2"; spawnDynamicArcadeBall("play_ball", "ri-play-fill", Math.random() * (winW - 100) + 50, 100, -4.0, -4); }
-  else if (level === 5) { if (nextBtn) nextBtn.style.opacity = "0.2"; spawnDynamicArcadeBall("next_ball", "ri-skip-forward-fill", Math.random() * (winW - 100) + 50, 100, 4.2, -4); }
-  else if (level === 6) spawnDynamicArcadeBall("core_ball", "ri-sparkling-fill", Math.random() * (winW - 100) + 50, 100, -4.5, -4);
+  if (level === 2) {
+    spawnDynamicArcadeBall("theme_ball", "ri-palette-line", Math.random() * (winW - 100) + 50, 100, -3.5, -4);
+  } else if (level === 3) {
+    spawnDynamicArcadeBall("upload_ball", "ri-folder-music-fill", Math.random() * (winW - 100) + 50, 100, 3.8, -4);
+  } else if (level === 4) {
+    if (playBtn) playBtn.style.opacity = "0.2";
+    spawnDynamicArcadeBall("play_ball", "ri-play-fill", Math.random() * (winW - 100) + 50, 100, -4.0, -4);
+  } else if (level === 5) {
+    if (nextBtn) nextBtn.style.opacity = "0.2";
+    spawnDynamicArcadeBall("next_ball", "ri-skip-forward-fill", Math.random() * (winW - 100) + 50, 100, 4.2, -4);
+  } else if (level === 6) {
+    spawnDynamicArcadeBall("core_ball", "ri-sparkling-fill", Math.random() * (winW - 100) + 50, 100, -4.5, -4);
+  }
 }
 
 function updateArcadePhysics() {
@@ -1619,9 +1628,18 @@ function updateArcadePhysics() {
     ball.x += ball.vx;
     ball.y += ball.vy;
 
-    if (ball.x <= 0) { ball.x = 0; ball.vx = Math.abs(ball.vx); } 
-    else if (ball.x + ball.size >= winW) { ball.x = winW - ball.size; ball.vx = -Math.abs(ball.vx); }
-    if (ball.y <= 0) { ball.y = 0; ball.vy = Math.abs(ball.vy); }
+    if (ball.x <= 0) {
+      ball.x = 0;
+      ball.vx = Math.abs(ball.vx);
+    } else if (ball.x + ball.size >= winW) {
+      ball.x = winW - ball.size;
+      ball.vx = -Math.abs(ball.vx);
+    }
+
+    if (ball.y <= 0) {
+      ball.y = 0;
+      ball.vy = Math.abs(ball.vy);
+    }
 
     if (
       ball.y + ball.size >= paddleTop &&
@@ -1642,7 +1660,10 @@ function updateArcadePhysics() {
       updateLiveHUD();
     }
 
-    if (ball.y + ball.size >= winH) { handleGameOverTrigger(); return; }
+    if (ball.y + ball.size >= winH) {
+      handleGameOverTrigger();
+      return;
+    }
 
     ball.el.style.transform = `translate3d(${ball.x}px, ${ball.y}px, 0)`;
   }
@@ -1661,6 +1682,8 @@ function handleGameOverTrigger() {
   if (playBtn) playBtn.style.opacity = "1";
   if (nextBtn) nextBtn.style.opacity = "1";
 
+  [btnDrawer, btnTheme, btnUpload].forEach(b => { if (b) b.style.display = "grid"; });
+
   if (arcadeScore > personalHighScore) {
     personalHighScore = arcadeScore;
     localStorage.setItem("vibe_arcade_personal_hs", personalHighScore.toString());
@@ -1671,12 +1694,15 @@ function handleGameOverTrigger() {
 
   document.getElementById("arcade-msg-title").textContent = "Game Over";
   document.getElementById("arcade-msg-body").innerHTML = `Score: <strong>${arcadeScore}</strong><br>Personal Best: <strong>${personalHighScore}</strong>`;
-  if (gameMsgOverlay) gameMsgOverlay.classList.add("active");
+  document.getElementById("arcade-start-btn").textContent = "Play Again";
+  document.getElementById("arcade-exit-btn").style.display = "inline-block";
+  gameMsgOverlay.classList.add("active");
+
+  requestAnimationFrame(updateNormalPhysics);
 }
 
 function endArcadeGame() {
   isArcadeMode = false;
-  isMergeGameMode = false;
   liveScoreHUD.classList.remove("active");
   draggableVolume.classList.remove("game-paddle-mode");
 
@@ -1686,230 +1712,10 @@ function endArcadeGame() {
   if (playBtn) playBtn.style.opacity = "1";
   if (nextBtn) nextBtn.style.opacity = "1";
 
-  document.querySelectorAll(".bounce-ball").forEach(b => { b.style.display = "grid"; });
+  [btnDrawer, btnTheme, btnUpload].forEach(b => { if (b) b.style.display = "grid"; });
 
-  setupBouncingBalls();
-}
-
-// --------------------------------------------------------
-// VIBE MERGE GAME LOGIC
-// --------------------------------------------------------
-function getRandomDropTier() {
-  const rand = Math.random();
-  if (rand < 0.50) return 1; // 50% chance for tier 1
-  if (rand < 0.80) return 2; // 30% chance for tier 2
-  if (rand < 0.95) return 3; // 15% chance for tier 3
-  return 4;                  // 5% chance for tier 4
-}
-
-function updatePreviewUI() {
-  const container = document.getElementById("merge-preview-container");
-  if (!container) return;
-  container.innerHTML = "";
-
-  mergeQueue.forEach((tierNum, idx) => {
-    const tData = MERGE_TIERS[tierNum - 1];
-    const bubbleSlot = document.createElement("div");
-    bubbleSlot.className = `preview-bubble-slot ${idx === 0 ? 'current-drop' : ''}`;
-    bubbleSlot.innerHTML = `<i class="${tData.icon}" style="color:${tData.color};"></i>`;
-    container.appendChild(bubbleSlot);
-  });
-}
-
-function renderEvolutionBar() {
-  const bar = document.getElementById("merge-evolution-bar");
-  if (!bar) return;
-  bar.innerHTML = "";
-
-  MERGE_TIERS.forEach((t, i) => {
-    const chip = document.createElement("div");
-    chip.className = "evolution-chip";
-    chip.innerHTML = `
-      <div class="evolution-icon-circle" style="border-color:${t.color};">
-        <i class="${t.icon}" style="color:${t.color};"></i>
-      </div>
-      ${i < MERGE_TIERS.length - 1 ? '<i class="ri-arrow-right-s-line evolution-arrow"></i>' : ''}
-    `;
-    bar.appendChild(chip);
-  });
-}
-
-function startMergeGame() {
-  exitZenMode();
-  closeAllDrawers();
-  
-  document.querySelectorAll(".bounce-ball").forEach(b => { b.style.display = "none"; });
-  document.body.classList.add("merge-mode-active");
-  
-  isMergeGameMode = true;
-  isArcadeMode = false;
-  arcadeScore = 0;
-  document.getElementById("merge-score-val").textContent = "0";
-
-  // Queue of 3 upcoming items
-  mergeQueue = [getRandomDropTier(), getRandomDropTier(), getRandomDropTier()];
-  updatePreviewUI();
-
-  const dangerY = document.getElementById("seek-container").getBoundingClientRect().bottom;
-  const floorY = window.innerHeight - 54;
-  
-  const dropper = document.getElementById("merge-dropper-guide");
-  dropper.style.top = `${dangerY}px`;
-  dropper.style.height = `${floorY - dangerY}px`;
-
-  setupMergePhysics(dangerY, floorY);
-
-  document.addEventListener('touchmove', handleMergeAim, {passive: true});
-  document.addEventListener('touchend', handleMergeDrop);
-  
-  document.getElementById("merge-quit-btn").onclick = quitMergeGame;
-}
-
-function setupMergePhysics(dangerY, floorY) {
-  const Engine = Matter.Engine, Runner = Matter.Runner, World = Matter.World, Bodies = Matter.Bodies, Events = Matter.Events, Composite = Matter.Composite;
-  
-  mergeEngine = Engine.create();
-  mergeEngine.world.gravity.y = 1.25;
-  
-  const floor = Bodies.rectangle(window.innerWidth / 2, floorY + 20, window.innerWidth, 40, { isStatic: true });
-  const leftWall = Bodies.rectangle(-25, window.innerHeight / 2, 50, window.innerHeight, { isStatic: true });
-  const rightWall = Bodies.rectangle(window.innerWidth + 25, window.innerHeight / 2, 50, window.innerHeight, { isStatic: true });
-  
-  World.add(mergeEngine.world, [floor, leftWall, rightWall]);
-
-  Events.on(mergeEngine, 'afterUpdate', () => {
-    Composite.allBodies(mergeEngine.world).forEach(body => {
-      if (mergeBodiesMap[body.id]) {
-        mergeBodiesMap[body.id].style.transform = `translate(${body.position.x - body.circleRadius}px, ${body.position.y - body.circleRadius}px) rotate(${body.angle}rad)`;
-      }
-    });
-  });
-
-  // Merge Collision Logic
-  Events.on(mergeEngine, 'collisionStart', (event) => {
-    event.pairs.forEach(pair => {
-      const a = pair.bodyA;
-      const b = pair.bodyB;
-      
-      if (a.tier && b.tier && a.tier === b.tier && a.tier < 10 && !a.isMerged && !b.isMerged) {
-        a.isMerged = true;
-        b.isMerged = true;
-        
-        setTimeout(() => {
-          World.remove(mergeEngine.world, [a, b]);
-          if(mergeBodiesMap[a.id]) mergeBodiesMap[a.id].remove();
-          if(mergeBodiesMap[b.id]) mergeBodiesMap[b.id].remove();
-          
-          spawnMergeItem(a.tier + 1, (a.position.x + b.position.x) / 2, (a.position.y + b.position.y) / 2);
-          
-          arcadeScore += MERGE_TIERS[a.tier].score;
-          document.getElementById("merge-score-val").textContent = arcadeScore;
-          
-          if (arcadeScore > personalHighScore) {
-            personalHighScore = arcadeScore;
-            localStorage.setItem("vibe_arcade_personal_hs", personalHighScore.toString());
-          }
-          updateGlobalScore(arcadeScore);
-          updateLeaderboardUI();
-        }, 0);
-      }
-    });
-  });
-
-  // Danger Ceiling Detection on the Seekbar
-  dangerTimer = setInterval(() => {
-    if(!isMergeGameMode) return;
-    let warning = false;
-    Composite.allBodies(mergeEngine.world).forEach(b => {
-      if(b.tier && (b.position.y - b.circleRadius) <= dangerY + 4 && Math.abs(b.velocity.y) < 0.2) {
-         warning = true;
-      }
-    });
-    
-    const seekBar = document.getElementById("seek-bar");
-    if (warning) {
-      seekBar.classList.add("danger-warning");
-    } else {
-      seekBar.classList.remove("danger-warning");
-    }
-  }, 1000);
-
-  mergeRunner = Runner.create();
-  Runner.run(mergeRunner, mergeEngine);
-}
-
-function spawnMergeItem(tierNum, x, y) {
-  const tData = MERGE_TIERS[tierNum - 1];
-  const body = Matter.Bodies.circle(x, y, tData.size / 2, {
-    restitution: 0.2, friction: 0.6, density: 0.002, tier: tierNum
-  });
-  
-  const domEl = document.createElement("div");
-  domEl.className = "merge-dom-body";
-  domEl.style.width = `${tData.size}px`;
-  domEl.style.height = `${tData.size}px`;
-  domEl.style.borderColor = tData.color;
-  domEl.innerHTML = `<i class="${tData.icon}" style="color:${tData.color}; font-size:${tData.size * 0.45}px;"></i>`;
-  
-  document.getElementById("merge-physics-container").appendChild(domEl);
-  mergeBodiesMap[body.id] = domEl;
-  
-  Matter.World.add(mergeEngine.world, body);
-}
-
-function handleMergeAim(e) {
-  if(!dropReady || !isMergeGameMode) return;
-  const x = e.touches[0].clientX;
-  document.getElementById("merge-dropper-guide").style.left = `${x}px`;
-}
-
-function handleMergeDrop(e) {
-  if(!dropReady || !isMergeGameMode) return;
-  dropReady = false;
-  
-  const x = e.changedTouches[0].clientX;
-  const dangerY = document.getElementById("seek-container").getBoundingClientRect().bottom;
-  
-  const dropTier = mergeQueue.shift();
-  const itemSize = MERGE_TIERS[dropTier - 1].size;
-  
-  spawnMergeItem(dropTier, x, dangerY + (itemSize / 2) + 6);
-  
-  mergeQueue.push(getRandomDropTier());
-  updatePreviewUI();
-  
-  setTimeout(() => { dropReady = true; }, 600);
-}
-
-function quitMergeGame() {
-  document.body.classList.remove("merge-mode-active");
-  isMergeGameMode = false;
-  
-  if (dangerTimer) clearInterval(dangerTimer);
-  if (mergeRunner) Matter.Runner.stop(mergeRunner);
-  if (mergeEngine) {
-    Matter.World.clear(mergeEngine.world);
-    Matter.Engine.clear(mergeEngine);
-  }
-  
-  document.getElementById("merge-physics-container").innerHTML = "";
-  mergeBodiesMap = {};
-  
-  document.removeEventListener('touchmove', handleMergeAim);
-  document.removeEventListener('touchend', handleMergeDrop);
-  
-  document.getElementById("seek-bar").classList.remove("danger-warning");
-  document.querySelectorAll(".bounce-ball").forEach(b => { b.style.display = "grid"; });
-  
-  // Sync Score to Leaderboard even if quit halfway
-  if (arcadeScore > personalHighScore) {
-    personalHighScore = arcadeScore;
-    localStorage.setItem("vibe_arcade_personal_hs", personalHighScore.toString());
-  }
-  updateGlobalScore(arcadeScore);
-  updateLeaderboardUI();
-  
-  setupBouncingBalls();
+  document.getElementById("arcade-exit-btn").style.display = "none";
+  requestAnimationFrame(updateNormalPhysics);
 }
 
 // ========================================================
@@ -1976,6 +1782,17 @@ function setupListeners() {
     });
   }
 
+  if (arcadeToggleBtn) {
+    arcadeToggleBtn.addEventListener("click", () => {
+      if (isArcadeMode) endArcadeGame();
+      else {
+        document.getElementById("arcade-exit-btn").style.display = "none";
+        document.getElementById("arcade-start-btn").textContent = "Start Vibe";
+        gameMsgOverlay.classList.add("active");
+      }
+    });
+  }
+
   document.querySelectorAll(".bg-btn:not(#custom-bg-label)").forEach(btn => {
     btn.addEventListener("click", () => applyBackground(parseInt(btn.getAttribute("data-bg"))));
   });
@@ -2002,7 +1819,6 @@ function setupListeners() {
   if (tabLikedBtn) {
     tabLikedBtn.addEventListener("click", () => {
       currentTab = "liked";
-      activeCustomPlaylistName = null;
       tabLikedBtn.classList.add("active");
       if (tabAllBtn) tabAllBtn.classList.remove("active");
       renderPlaylist();
@@ -2036,9 +1852,9 @@ function setupListeners() {
   if (audioFileInput) audioFileInput.addEventListener("change", handleLocalFileUpload);
   if (drawerAudioFileInput) drawerAudioFileInput.addEventListener("change", handleLocalFileUpload);
 
-  if (btnDrawer) btnDrawer.addEventListener("click", (e) => { if (!isArcadeMode && !isMergeGameMode) { e.stopPropagation(); openPlaylistDrawer(); } });
-  if (btnTheme) btnTheme.addEventListener("click", (e) => { if (!isArcadeMode && !isMergeGameMode) { e.stopPropagation(); openThemeDrawer(); } });
-  if (btnUpload) btnUpload.addEventListener("click", (e) => { if (!isArcadeMode && !isMergeGameMode) { e.stopPropagation(); if (audioFileInput) audioFileInput.click(); } });
+  if (btnDrawer) btnDrawer.addEventListener("click", (e) => { if (!isArcadeMode) { e.stopPropagation(); openPlaylistDrawer(); } });
+  if (btnTheme) btnTheme.addEventListener("click", (e) => { if (!isArcadeMode) { e.stopPropagation(); openThemeDrawer(); } });
+  if (btnUpload) btnUpload.addEventListener("click", (e) => { if (!isArcadeMode) { e.stopPropagation(); if (audioFileInput) audioFileInput.click(); } });
 
   const closeDrawerBtn = document.getElementById("close-drawer-btn");
   const closeThemeBtn = document.getElementById("close-theme-btn");
@@ -2048,13 +1864,13 @@ function setupListeners() {
 
   let lastTouchTime = 0;
   function handleZenTrigger(e) {
-    if (isArcadeMode || isMergeGameMode || e.target.closest("button") || e.target.closest("input") || e.target.closest("#seek-container") || e.target.closest(".playlist-drawer") || e.target.closest(".draggable-volume-box") || e.target.closest(".leaderboard-sidebar")) return;
+    if (isArcadeMode || e.target.closest("button") || e.target.closest("input") || e.target.closest("#seek-container") || e.target.closest(".playlist-drawer") || e.target.closest(".draggable-volume-box") || e.target.closest(".leaderboard-sidebar")) return;
     toggleZenMode();
   }
 
   window.addEventListener("dblclick", handleZenTrigger);
   window.addEventListener("touchend", (e) => {
-    if (isArcadeMode || isMergeGameMode) return;
+    if (isArcadeMode) return;
     const now = Date.now();
     if (now - lastTouchTime < 320 && now - lastTouchTime > 40) handleZenTrigger(e);
     lastTouchTime = now;
@@ -2067,11 +1883,10 @@ function setupListeners() {
   document.addEventListener("keydown", (e) => {
     if (e.target.tagName === "INPUT") return;
     if (e.code === "Space") { e.preventDefault(); togglePlay(); }
-    else if (e.code === "KeyZ" && !isArcadeMode && !isMergeGameMode) { e.preventDefault(); toggleZenMode(); }
+    else if (e.code === "KeyZ" && !isArcadeMode) { e.preventDefault(); toggleZenMode(); }
     else if (e.code === "Escape") { 
       if (isZenMode) exitZenMode(); 
       if (isArcadeMode) endArcadeGame();
-      if (isMergeGameMode) quitMergeGame();
       closeAllDrawers();
     }
   });

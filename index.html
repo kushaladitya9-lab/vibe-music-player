@@ -27,10 +27,6 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/remixicon@4.2.0/fonts/remixicon.css" rel="stylesheet"/>
-  
-  <!-- Physics Engine for Merge Game -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
-  <!-- Supabase -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body class="mood-sunset">
@@ -50,9 +46,9 @@
       <i class="ri-focus-3-line"></i>
       <span>Zen</span>
     </button>
-    <button class="scene-btn arcade-btn" id="arcade-toggle-btn" title="Games Hub">
+    <button class="scene-btn arcade-btn" id="arcade-toggle-btn" title="Arcade Pong Game Mode">
       <i class="ri-gamepad-line"></i>
-      <span>Games</span>
+      <span>Game</span>
     </button>
     <button class="scene-btn refresh-btn" id="app-refresh-btn" title="Check Updates & Sync App">
       <i class="ri-refresh-line" id="refresh-icon"></i>
@@ -99,59 +95,6 @@
     </div>
   </aside>
 
-  <!-- Games Hub Modal -->
-  <div class="game-hub-backdrop" id="game-hub-modal">
-    <div class="glass-modal game-hub-modal">
-      <i class="ri-gamepad-fill modal-icon"></i>
-      <h3>Vibe Games Hub</h3>
-      <p>Select a game to play while listening to music.</p>
-      
-      <div class="game-options-container">
-        <button class="game-select-card" id="start-pong-btn">
-          <div class="game-card-icon"><i class="ri-ping-pong-fill" style="color: #ff9f43;"></i></div>
-          <div class="game-card-info">
-            <h4>Component Pong</h4>
-            <span>Classic paddle bounce.</span>
-          </div>
-        </button>
-
-        <button class="game-select-card" id="start-merge-btn">
-          <div class="game-card-icon"><i class="ri-stack-fill" style="color: var(--accent-gold);"></i></div>
-          <div class="game-card-info">
-            <h4>Vibe Merge</h4>
-            <span>Drop & merge icons to build the Golden Vinyl.</span>
-          </div>
-        </button>
-      </div>
-
-      <button id="close-hub-btn" class="glass-btn danger" style="margin-top: 15px; width: 100%;">Cancel</button>
-    </div>
-  </div>
-
-  <!-- Game Over Overlay Modal (Common for Pong & Merge) -->
-  <div class="arcade-msg-overlay" id="arcade-msg-overlay">
-    <div class="msg-content">
-      <i class="ri-gamepad-line modal-icon"></i>
-      <h1 id="arcade-msg-title">Game Over</h1>
-      <p id="arcade-msg-body">Your score will be synced to the leaderboard.</p>
-      <div class="modal-buttons-row">
-        <button id="arcade-start-btn" class="glass-btn primary">Play Again</button>
-        <button id="arcade-exit-btn" class="glass-btn danger">Exit Game</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Nickname Registration Modal -->
-  <div class="arcade-modal-backdrop" id="arcade-nickname-modal">
-    <div class="glass-modal">
-      <i class="ri-user-star-line modal-icon"></i>
-      <h3>Claim Unique Game Tag</h3>
-      <p>Choose a unique name. No two players can have the same tag!</p>
-      <input type="text" id="arcade-nick-input" placeholder="VibeMaster" maxlength="10">
-      <button id="arcade-save-nick-btn" class="glass-btn primary">Claim Tag</button>
-    </div>
-  </div>
-
   <!-- 3 Transparent Glassmorphic Bouncing Balls -->
   <button class="bounce-ball" id="open-drawer-btn" title="Open Songs & Playlists">
     <i class="ri-play-list-2-fill"></i>
@@ -167,18 +110,11 @@
   </button>
   <input type="file" id="audio-file-input" accept="audio/*" multiple hidden>
 
-  <!-- Transparent Draggable Volume Pill (Elevated above evolution bar in Merge Mode) -->
+  <!-- Transparent Draggable Volume Pill (Paddle in Game Mode) -->
   <div class="draggable-volume-box" id="draggable-volume" title="Drag anywhere!">
     <i class="ri-volume-up-line" id="volume-icon" title="Mute/Unmute"></i>
     <input type="range" id="volume-slider" min="0" max="1" step="0.01" value="1">
   </div>
-
-  <!-- Bottom Evolution Flow Bar (Sequence of fruit/ball upgrades in Merge Game) -->
-  <div class="merge-evolution-bar" id="merge-evolution-bar"></div>
-
-  <!-- Dropper Guide & Physics Container for Merge -->
-  <div id="merge-dropper-guide" class="merge-dropper-guide"></div>
-  <div id="merge-physics-container"></div>
 
   <!-- Main Player Container -->
   <main class="player-container" id="player-container">
@@ -198,14 +134,7 @@
         <p class="track-artist" id="track-artist">My Favourite Artist</p>
       </section>
 
-      <!-- MERGE GAME HUD (Score, 3 Preview Bubbles, Quit) -->
-      <div class="merge-hud" id="merge-hud">
-        <div class="merge-score-pill"><i class="ri-gamepad-fill" style="color:var(--accent-gold);"></i> Score: <span id="merge-score-val">0</span></div>
-        <div class="merge-preview-container" id="merge-preview-container"></div>
-        <button id="merge-quit-btn" class="merge-quit-btn" title="Quit Game"><i class="ri-close-line"></i></button>
-      </div>
-
-      <!-- Progress / Seek Bar Section (Acts as the Danger Ceiling in Merge Game) -->
+      <!-- Progress / Seek Bar Section -->
       <section class="progress-section">
         <div class="seek-container" id="seek-container">
           <div class="seek-bar" id="seek-bar">
@@ -313,7 +242,7 @@
         <h3>Theme & Ambience Studio</h3>
         <p>Custom Wallpapers, Moods & Rain Synth</p>
       </div>
-      <button class="close-theme-btn" id="close-theme-btn">
+      <button class="close-drawer-btn" id="close-theme-btn">
         <i class="ri-close-line"></i>
       </button>
     </div>

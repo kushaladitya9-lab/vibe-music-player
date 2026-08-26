@@ -14,7 +14,7 @@ try {
   console.warn("Supabase init error:", e);
 }
 
-// Device UUID Generator
+// Device UUID Generator (Ensures unique ownership per device)
 function getOrCreateDeviceId() {
   let devId = localStorage.getItem("vibe_device_id");
   if (!devId) {
@@ -25,7 +25,7 @@ function getOrCreateDeviceId() {
 }
 const DEVICE_ID = getOrCreateDeviceId();
 
-// All 42 Built-in Tracks (Fully Expanded)
+// All 42 Built-in Tracks (100% Intact)
 const baseTracks = [
   { id: "s1", title: "Chala Jata Hoon", artist: "", src: "song1.mp3" },
   { id: "s2", title: "Tera Mera Pyar Amar", artist: "", src: "song2.mp3" },
@@ -226,8 +226,9 @@ let liveScoreHUD, gameMsgOverlay, nicknameModal, gameHubModal;
 let isMergeGameMode = false;
 let mergeEngine, mergeRunner;
 let mergeBodiesMap = {}; 
-let currentDropTier = 1, nextDropTier = 1;
+let mergeQueue = []; // Queue of 3 upcoming tiers
 let dropReady = true;
+let dangerTimer = null;
 
 const MERGE_TIERS = [
   { tier: 1, size: 36, icon: 'ri-music-2-line', color: '#ffffff', score: 2 },
@@ -340,8 +341,14 @@ async function initPlayer() {
   updateLikedCount();
   
   await loadSavedLocalSongs();
+  await fetchSupabaseSongs();
   rebuildPlaylist();
-  loadTrack(currentTrackIndex);
+
+  // Auto-play random song on startup
+  const randomInitialIndex = Math.floor(Math.random() * playlist.length);
+  loadTrack(randomInitialIndex);
+  playTrack();
+
   setupListeners();
   setupMediaSession();
   setupDualAudioListeners(audioA);
@@ -352,7 +359,6 @@ async function initPlayer() {
   initArcadeUI();
   setupSwipeGestures();
 
-  await fetchSupabaseSongs();
   await fetchGlobalHighScore();
   updateLeaderboardUI();
 }
@@ -559,7 +565,7 @@ function playTrack() {
       updateMediaSessionMetadata(playlist[currentTrackIndex]);
       preloadStandbyTrack();
     }).catch((err) => {
-      console.warn("Playback needed interaction:", err);
+      console.warn("Autoplay needs interaction:", err);
     });
   }
 }
@@ -690,7 +696,7 @@ function setupDualAudioListeners(audioNode) {
 }
 
 function setProgress(e) {
-  if (!seekContainer || !activeAudio) return;
+  if (!seekContainer || !activeAudio || isMergeGameMode) return;
   const rect = seekContainer.getBoundingClientRect();
   const clickX = e.clientX - rect.left;
   const width = rect.width;
@@ -1104,7 +1110,7 @@ function closeAllDrawers() {
   if (drawerBackdrop) drawerBackdrop.classList.remove("active");
 }
 
-// Draggable Volume Bar (Paddle / Floor in Game Mode)
+// Draggable Volume Bar
 function setupDraggableVolume() {
   if (!draggableVolume) return;
 
@@ -1115,7 +1121,7 @@ function setupDraggableVolume() {
 
   const getRestrictedY = (y) => {
     if (isArcadeMode) return window.innerHeight - draggableVolume.offsetHeight - 25;
-    if (isMergeGameMode) return window.innerHeight - 65; 
+    if (isMergeGameMode) return window.innerHeight - 60;
     return y;
   };
 
@@ -1307,7 +1313,7 @@ function initWeatherCanvas() {
 function renderCustomPlaylists() {}
 
 // ========================================================
-// 🕹️ GAMES HUB, PONG & MERGE MODE
+// 🕹️ GAMES HUB, LEADERBOARD, PONG & MERGE MODE
 // ========================================================
 function initArcadeUI() {
   document.getElementById("arcade-toggle-btn").addEventListener("click", () => {
@@ -1514,7 +1520,6 @@ async function saveArcadeNickname() {
   const isClaimed = await claimOrUpdateGameTag(nick);
   if (isClaimed) {
     nicknameModal.classList.remove("active");
-    // Just close modal, let user choose game from hub again
   }
 }
 
@@ -1654,35 +1659,70 @@ function handleGameOverTrigger() {
   requestAnimationFrame(updateNormalPhysics);
 }
 
+function endArcadeGame() {
+  isArcadeMode = false;
+  liveScoreHUD.classList.remove("active");
+  draggableVolume.classList.remove("game-paddle-mode");
+
+  arcadeBalls.forEach(b => { if (b.el) b.el.remove(); });
+  arcadeBalls = [];
+
+  if (playBtn) playBtn.style.opacity = "1";
+  if (nextBtn) nextBtn.style.opacity = "1";
+
+  document.querySelectorAll(".bounce-ball").forEach(b => { b.style.display = "grid"; });
+
+  requestAnimationFrame(updateNormalPhysics);
+}
+
 // --------------------------------------------------------
-// VIBE MERGE GAME LOGIC (Matter.js with Seekbar as Danger Zone)
+// VIBE MERGE GAME LOGIC (Using Seekbar as Danger Line)
 // --------------------------------------------------------
+function getRandomDropTier() {
+  const rand = Math.random();
+  if (rand < 0.55) return 1; // 55% chance for tier 1
+  if (rand < 0.85) return 2; // 30% chance for tier 2
+  return 3;                  // 15% chance for tier 3
+}
+
+function updatePreviewUI() {
+  const container = document.getElementById("merge-preview-container");
+  if (!container) return;
+  container.innerHTML = "";
+
+  mergeQueue.forEach((tierNum, idx) => {
+    const tData = MERGE_TIERS[tierNum - 1];
+    const bubbleSlot = document.createElement("div");
+    bubbleSlot.className = `preview-bubble-slot ${idx === 0 ? 'current-drop' : ''}`;
+    bubbleSlot.innerHTML = `<i class="${tData.icon}" style="color:${tData.color};"></i>`;
+    container.appendChild(bubbleSlot);
+  });
+}
+
 function startMergeGame() {
   exitZenMode();
   closeAllDrawers();
   
-  // Hide normal balls
   document.querySelectorAll(".bounce-ball").forEach(b => { b.style.display = "none"; });
-  
-  // Activate Merge Mode Classes
   document.body.classList.add("merge-mode-active");
+  
   isMergeGameMode = true;
   arcadeScore = 0;
   document.getElementById("merge-score-val").textContent = "0";
 
-  // Calculate danger line (Seekbar bottom)
+  // Initialize queue of 3 upcoming items
+  mergeQueue = [getRandomDropTier(), getRandomDropTier(), getRandomDropTier()];
+  updatePreviewUI();
+
   const dangerY = document.getElementById("seek-container").getBoundingClientRect().bottom;
-  const floorY = window.innerHeight - 65; // Volume bar becomes 65px floor
+  const floorY = window.innerHeight - 60; // Volume bar touches floor
   
-  // Setup Dropper line
   const dropper = document.getElementById("merge-dropper-guide");
   dropper.style.top = `${dangerY}px`;
   dropper.style.height = `${floorY - dangerY}px`;
 
   setupMergePhysics(dangerY, floorY);
-  setNextMergeItem();
 
-  // Bind touch events
   document.addEventListener('touchmove', handleMergeAim, {passive: true});
   document.addEventListener('touchend', handleMergeDrop);
   
@@ -1690,19 +1730,17 @@ function startMergeGame() {
 }
 
 function setupMergePhysics(dangerY, floorY) {
-  const Engine = Matter.Engine, Render = Matter.Render, Runner = Matter.Runner, World = Matter.World, Bodies = Matter.Bodies, Events = Matter.Events, Composite = Matter.Composite;
+  const Engine = Matter.Engine, Runner = Matter.Runner, World = Matter.World, Bodies = Matter.Bodies, Events = Matter.Events, Composite = Matter.Composite;
   
   mergeEngine = Engine.create();
-  mergeEngine.world.gravity.y = 1.2;
+  mergeEngine.world.gravity.y = 1.25;
   
-  // Create Boundaries
   const floor = Bodies.rectangle(window.innerWidth / 2, floorY + 25, window.innerWidth, 50, { isStatic: true });
   const leftWall = Bodies.rectangle(-25, window.innerHeight / 2, 50, window.innerHeight, { isStatic: true });
   const rightWall = Bodies.rectangle(window.innerWidth + 25, window.innerHeight / 2, 50, window.innerHeight, { isStatic: true });
   
   World.add(mergeEngine.world, [floor, leftWall, rightWall]);
 
-  // Sync Matter bodies to DOM
   Events.on(mergeEngine, 'afterUpdate', () => {
     Composite.allBodies(mergeEngine.world).forEach(body => {
       if (mergeBodiesMap[body.id]) {
@@ -1735,13 +1773,12 @@ function setupMergePhysics(dangerY, floorY) {
     });
   });
 
-  // Danger Zone Check (Check if bodies cross above the Seekbar line)
-  setInterval(() => {
+  // Danger Ceiling Detection on the Seekbar
+  dangerTimer = setInterval(() => {
     if(!isMergeGameMode) return;
     let warning = false;
     Composite.allBodies(mergeEngine.world).forEach(b => {
-      // If the top of the circle is higher than danger line AND it's somewhat settled
-      if(b.tier && (b.position.y - b.circleRadius) <= dangerY + 5 && Math.abs(b.velocity.y) < 0.2) {
+      if(b.tier && (b.position.y - b.circleRadius) <= dangerY + 4 && Math.abs(b.velocity.y) < 0.2) {
          warning = true;
       }
     });
@@ -1777,16 +1814,6 @@ function spawnMergeItem(tierNum, x, y) {
   Matter.World.add(mergeEngine.world, body);
 }
 
-function setNextMergeItem() {
-  currentDropTier = nextDropTier;
-  nextDropTier = Math.floor(Math.random() * 3) + 1; // Random Tier 1 to 3
-  
-  const tData = MERGE_TIERS[nextDropTier - 1];
-  const iconEl = document.getElementById("next-item-icon");
-  iconEl.className = tData.icon;
-  iconEl.style.color = tData.color;
-}
-
 function handleMergeAim(e) {
   if(!dropReady || !isMergeGameMode) return;
   const x = e.touches[0].clientX;
@@ -1799,23 +1826,30 @@ function handleMergeDrop(e) {
   
   const x = e.changedTouches[0].clientX;
   const dangerY = document.getElementById("seek-container").getBoundingClientRect().bottom;
-  const itemSize = MERGE_TIERS[currentDropTier - 1].size;
   
-  // Drop item just below the danger line so it doesn't trigger immediately
-  spawnMergeItem(currentDropTier, x, dangerY + (itemSize / 2) + 5);
+  // Take the exact item that was in slot 1 of the preview
+  const dropTier = mergeQueue.shift();
+  const itemSize = MERGE_TIERS[dropTier - 1].size;
   
-  setNextMergeItem();
+  spawnMergeItem(dropTier, x, dangerY + (itemSize / 2) + 6);
   
-  setTimeout(() => { dropReady = true; }, 800);
+  // Push next randomized tier into queue
+  mergeQueue.push(getRandomDropTier());
+  updatePreviewUI();
+  
+  setTimeout(() => { dropReady = true; }, 700);
 }
 
 function quitMergeGame() {
   document.body.classList.remove("merge-mode-active");
   isMergeGameMode = false;
   
-  if(mergeRunner) Matter.Runner.stop(mergeRunner);
-  Matter.World.clear(mergeEngine.world);
-  Matter.Engine.clear(mergeEngine);
+  if (dangerTimer) clearInterval(dangerTimer);
+  if (mergeRunner) Matter.Runner.stop(mergeRunner);
+  if (mergeEngine) {
+    Matter.World.clear(mergeEngine.world);
+    Matter.Engine.clear(mergeEngine);
+  }
   
   document.getElementById("merge-physics-container").innerHTML = "";
   mergeBodiesMap = {};
@@ -1825,6 +1859,14 @@ function quitMergeGame() {
   
   document.getElementById("seek-bar").classList.remove("danger-warning");
   document.querySelectorAll(".bounce-ball").forEach(b => { b.style.display = "grid"; });
+  
+  // Update Leaderboard score
+  if (arcadeScore > personalHighScore) {
+    personalHighScore = arcadeScore;
+    localStorage.setItem("vibe_arcade_personal_hs", personalHighScore.toString());
+  }
+  updateGlobalScore(arcadeScore);
+  updateLeaderboardUI();
   
   requestAnimationFrame(updateNormalPhysics);
 }

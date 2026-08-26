@@ -386,7 +386,7 @@ body.zen-mode .floating-score-tab {
   cursor: grab;
   touch-action: none;
   will-change: transform;
-  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+  transition: width 0.3s ease, border-radius 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
 }
 
 .draggable-volume-box:active { cursor: grabbing; border-color: var(--accent-gold); }
@@ -427,7 +427,6 @@ body.zen-mode .floating-score-tab {
   width: 100%;
   margin-bottom: clamp(16px, 3vh, 24px);
   padding: 0 10px;
-  transition: margin-bottom 0.4s ease;
 }
 
 .title-like-row { display: flex; align-items: center; justify-content: center; gap: 8px; }
@@ -445,6 +444,7 @@ body.zen-mode .floating-score-tab {
   overflow: hidden;
 }
 
+/* Matching Heart and Share Action Buttons */
 .heart-btn,
 .share-btn {
   background: transparent;
@@ -485,9 +485,9 @@ body.zen-mode .floating-score-tab {
 }
 
 /* Progress Section */
-.progress-section { width: 100%; margin-bottom: clamp(18px, 3.5vh, 26px); transition: opacity 0.4s ease; }
-.seek-container { width: 100%; padding: 10px 0; cursor: pointer; position: relative;}
-.seek-bar { width: 100%; height: 4px; background: var(--progress-bg); border-radius: 4px; position: relative; transition: border 0.3s ease, background 0.3s ease; }
+.progress-section { width: 100%; margin-bottom: clamp(18px, 3.5vh, 26px); }
+.seek-container { width: 100%; padding: 10px 0; cursor: pointer; position: relative; }
+.seek-bar { width: 100%; height: 4px; background: var(--progress-bg); border-radius: 4px; position: relative; transition: background 0.3s ease, box-shadow 0.3s ease; }
 .seek-progress { width: 0%; height: 100%; background: var(--progress-fill); border-radius: 4px; box-shadow: 0 0 8px rgba(255, 255, 255, 0.6); }
 .seek-thumb {
   position: absolute; top: 50%; left: 0%; transform: translate(-50%, -50%);
@@ -502,7 +502,7 @@ body.zen-mode .floating-score-tab {
 }
 
 /* Controls */
-.controls-section { width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 0 4px; transition: opacity 0.4s ease; }
+.controls-section { width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 0 4px; }
 .ctrl-btn { background: transparent; border: none; color: var(--text-white); cursor: pointer; display: grid; place-items: center; transition: var(--transition); }
 .ctrl-btn.icon-only { font-size: clamp(1.4rem, 3.8vw, 1.75rem); opacity: 0.9; }
 .ctrl-btn.icon-only:hover { opacity: 1; transform: scale(1.15); }
@@ -648,7 +648,7 @@ body.zen-mode .floating-score-tab {
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* ========================================================
-   GAMES HUB MODALS
+   GAMES HUB MODALS & ARCADE COMMON
    ======================================================== */
 .game-hub-backdrop {
   position: fixed; inset: 0; background: rgba(0, 0, 0, 0.65);
@@ -668,95 +668,162 @@ body.zen-mode .floating-score-tab {
 .game-card-info h4 { font-size: 1rem; font-weight: 800; margin-bottom: 2px; }
 .game-card-info span { font-size: 0.75rem; color: rgba(255,255,255,0.6); }
 
-/* Arcade Mode Core Modals */
+/* Arcade Mode Live HUD & Modals */
 .arcade-live-hud {
-  position: fixed; top: 18px; right: 18px; background: rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 14px;
-  padding: 6px 14px; display: none; align-items: center; gap: 10px; z-index: 9995;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3); font-size: 0.85rem; font-weight: 800; color: #fff; pointer-events: none;
+  position: fixed;
+  top: 18px;
+  right: 18px;
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 14px;
+  padding: 6px 14px;
+  display: none;
+  align-items: center;
+  gap: 10px;
+  z-index: 9995;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: #fff;
+  pointer-events: none;
 }
 .arcade-live-hud.active { display: flex; }
-.arcade-msg-overlay, .arcade-modal-backdrop { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(10px); z-index: 10005; display: none; place-items: center; }
-.arcade-msg-overlay.active, .arcade-modal-backdrop.active { display: grid; }
-.msg-content, .glass-modal { background: rgba(255, 255, 255, 0.07); backdrop-filter: blur(28px); border: 1.5px solid rgba(255, 255, 255, 0.25); padding: 26px 30px; border-radius: 22px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 12px; box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7); max-width: 320px; }
+
+.arcade-msg-overlay,
+.arcade-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  z-index: 10005;
+  display: none;
+  place-items: center;
+}
+.arcade-msg-overlay.active,
+.arcade-modal-backdrop.active { display: grid; }
+
+.msg-content,
+.glass-modal {
+  background: rgba(255, 255, 255, 0.07);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+  border: 1.5px solid rgba(255, 255, 255, 0.25);
+  padding: 26px 30px;
+  border-radius: 22px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 12px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7);
+  max-width: 320px;
+}
+
 .modal-icon { font-size: 2.2rem; color: var(--accent-gold); }
-.glass-modal h3, .msg-content h1 { font-size: 1.25rem; font-weight: 800; color: #fff; }
-.glass-modal p, .msg-content p { font-size: 0.82rem; color: rgba(255, 255, 255, 0.75); line-height: 1.4; }
-.modal-buttons-row { display: flex; gap: 10px; width: 100%; justify-content: center; margin-top: 4px; }
+.glass-modal h3,
+.msg-content h1 { font-size: 1.25rem; font-weight: 800; color: #fff; }
+.glass-modal p,
+.msg-content p { font-size: 0.82rem; color: rgba(255, 255, 255, 0.75); line-height: 1.4; }
+
+#arcade-nick-input {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  padding: 9px 14px;
+  border-radius: 12px;
+  color: #fff;
+  font-size: 0.9rem;
+  text-align: center;
+  font-weight: 700;
+  outline: none;
+}
+#arcade-nick-input:focus { border-color: var(--accent-gold); }
+
+.modal-buttons-row {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+  justify-content: center;
+  margin-top: 4px;
+}
+
+.glass-btn {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: #fff;
+  padding: 8px 18px;
+  border-radius: 50px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: var(--transition);
+}
+.glass-btn.primary { background: var(--accent-gold); color: #000; border-color: var(--accent-gold); }
+.glass-btn.danger { background: rgba(255, 71, 87, 0.2); border-color: rgba(255, 71, 87, 0.4); color: #ff4757; }
+.glass-btn:hover { transform: scale(1.05); }
 
 /* ========================================================
-   MERGE GAME SPECIFIC UI (HUD ORDER REARRANGEMENT)
+   MERGE GAME SPECIFIC UI
    ======================================================== */
 .merge-hud {
   display: none;
   width: 100%;
-  padding: 10px 0;
-  margin-bottom: 5px;
+  padding: 6px 0;
+  margin-bottom: 8px;
+  align-items: center;
+  justify-content: space-between;
 }
 
-/* When Merge Mode is Active */
 body.merge-mode-active .merge-hud {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-body.merge-mode-active .track-meta {
-  margin-bottom: 10px; /* Bring closer to the HUD */
-}
-
-/* Hide Heart/Share buttons next to the title */
-body.merge-mode-active .title-like-row .heart-btn,
-body.merge-mode-active .title-like-row .share-btn {
-  display: none;
-}
-
-/* Hide Bottom Standard UI */
-body.merge-mode-active .time-display,
-body.merge-mode-active .controls-section {
-  display: none;
-}
-
-/* Hide floating overlay buttons */
-body.merge-mode-active .scene-switcher-container,
-body.merge-mode-active .floating-score-tab,
-body.merge-mode-active .bounce-ball {
-  opacity: 0;
-  pointer-events: none;
 }
 
 .merge-score-pill {
-  background: rgba(0, 0, 0, 0.4);
-  padding: 6px 16px;
+  background: rgba(0, 0, 0, 0.45);
+  padding: 6px 14px;
   border-radius: 50px;
   font-weight: 800;
-  font-size: 1.05rem;
+  font-size: 0.95rem;
   border: 1px solid rgba(255, 222, 89, 0.5);
   color: var(--accent-gold);
 }
 
-.merge-preview-pill {
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  border-radius: 20px;
-  padding: 4px 12px;
+.merge-preview-container {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 0.8rem;
-  font-weight: 700;
-  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 5px 12px;
+  border-radius: 50px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(16px);
 }
 
-#next-item-icon-container {
-  width: 24px;
-  height: 24px;
+.preview-bubble-slot {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
   display: grid;
   place-items: center;
-  font-size: 1.2rem;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  font-size: 1rem;
+  transition: transform 0.2s ease;
 }
 
-.quit-pill {
+.preview-bubble-slot.current-drop {
+  width: 36px;
+  height: 36px;
+  font-size: 1.25rem;
+  border-color: var(--accent-gold);
+  background: rgba(255, 222, 89, 0.18);
+  transform: scale(1.08);
+}
+
+.merge-quit-btn {
   background: rgba(255, 71, 87, 0.2);
   border: 1px solid rgba(255, 71, 87, 0.5);
   color: #ff4757;
@@ -767,45 +834,58 @@ body.merge-mode-active .bounce-ball {
   cursor: pointer;
   display: grid;
   place-items: center;
+  transition: var(--transition);
+}
+.merge-quit-btn:hover { transform: scale(1.1); background: rgba(255, 71, 87, 0.35); }
+
+/* Hide UI elements in Merge Mode */
+body.merge-mode-active .title-like-row .heart-btn,
+body.merge-mode-active .title-like-row .share-btn,
+body.merge-mode-active .time-display,
+body.merge-mode-active .controls-section,
+body.merge-mode-active .scene-switcher-container,
+body.merge-mode-active .floating-score-tab,
+body.merge-mode-active .bounce-ball {
+  display: none !important;
+  pointer-events: none !important;
 }
 
-/* Convert Volume Box to Floor Base */
+/* Volume Bar Floor Base in Merge Mode (Touches both edges perfectly) */
 body.merge-mode-active .draggable-volume-box {
   position: fixed !important;
   top: auto !important;
   bottom: 0 !important;
   left: 0 !important;
+  right: 0 !important;
   width: 100vw !important;
-  height: 65px !important;
+  height: 60px !important;
   border-radius: 20px 20px 0 0 !important;
-  transform: none !important;
+  border-left: none !important;
+  border-right: none !important;
+  border-bottom: none !important;
   border-color: var(--accent-gold) !important;
-  background: rgba(255, 255, 255, 0.15) !important;
-  box-shadow: 0 0 30px rgba(255, 222, 89, 0.3) !important;
+  transform: none !important;
+  background: rgba(255, 255, 255, 0.12) !important;
+  box-shadow: 0 -5px 25px rgba(255, 222, 89, 0.25) !important;
   z-index: 9998;
   justify-content: center;
 }
 
-/* Convert Seek Bar to Danger Line */
+/* Seekbar as the Danger Ceiling */
 body.merge-mode-active .seek-container {
   padding: 0;
-  margin-bottom: 20px;
-}
-body.merge-mode-active .seek-bar {
-  background: transparent;
-  border-bottom: 3px dashed rgba(255, 255, 255, 0.5);
-  box-shadow: none;
+  margin-bottom: 12px;
 }
 body.merge-mode-active .seek-progress,
 body.merge-mode-active .seek-thumb {
   display: none;
 }
 body.merge-mode-active .seek-bar.danger-warning {
-  border-bottom: 3px dashed #ff4757;
-  box-shadow: 0 15px 20px -10px rgba(255, 71, 87, 0.8);
+  background: #ff4757 !important;
+  box-shadow: 0 0 16px #ff4757 !important;
 }
 
-/* Merge Dropper Guide */
+/* Merge Dropper & Physics Objects */
 .merge-dropper-guide {
   position: absolute;
   width: 2px;
@@ -814,11 +894,8 @@ body.merge-mode-active .seek-bar.danger-warning {
   z-index: 9994;
   pointer-events: none;
 }
-body.merge-mode-active .merge-dropper-guide {
-  display: block;
-}
+body.merge-mode-active .merge-dropper-guide { display: block; }
 
-/* Physics Container */
 #merge-physics-container {
   position: absolute;
   inset: 0;
@@ -827,9 +904,7 @@ body.merge-mode-active .merge-dropper-guide {
   overflow: hidden;
   display: none;
 }
-body.merge-mode-active #merge-physics-container {
-  display: block;
-}
+body.merge-mode-active #merge-physics-container { display: block; }
 
 .merge-dom-body {
   position: absolute;
@@ -840,9 +915,10 @@ body.merge-mode-active #merge-physics-container {
   place-items: center;
   background: rgba(255, 255, 255, 0.15);
   backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   border: 2px solid;
   color: #fff;
-  box-shadow: inset 0 0 15px rgba(255, 255, 255, 0.2), 0 5px 15px rgba(0, 0, 0, 0.4);
+  box-shadow: inset 0 0 15px rgba(255,255,255,0.2), 0 5px 15px rgba(0,0,0,0.4);
   transform-origin: center center;
   will-change: transform;
   pointer-events: none;

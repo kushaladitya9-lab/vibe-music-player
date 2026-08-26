@@ -27,6 +27,9 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/remixicon@4.2.0/fonts/remixicon.css" rel="stylesheet"/>
+  
+  <!-- Physics Engine for Merge Game -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body class="mood-sunset">
@@ -36,7 +39,7 @@
   <div class="scrim-overlay"></div>
   <canvas id="weather-canvas"></canvas>
 
-  <!-- Top Action Container (Mood, Zen, Game & Sync) -->
+  <!-- Top Action Container -->
   <div class="scene-switcher-container">
     <button class="scene-btn" id="mood-toggle-btn" title="Click to cycle Mood">
       <i class="ri-sun-cloudy-line" id="mood-icon"></i>
@@ -46,9 +49,9 @@
       <i class="ri-focus-3-line"></i>
       <span>Zen</span>
     </button>
-    <button class="scene-btn arcade-btn" id="arcade-toggle-btn" title="Arcade Pong Game Mode">
+    <button class="scene-btn arcade-btn" id="arcade-toggle-btn" title="Games Hub">
       <i class="ri-gamepad-line"></i>
-      <span>Game</span>
+      <span>Games</span>
     </button>
     <button class="scene-btn refresh-btn" id="app-refresh-btn" title="Check Updates & Sync App">
       <i class="ri-refresh-line" id="refresh-icon"></i>
@@ -95,6 +98,59 @@
     </div>
   </aside>
 
+  <!-- Games Hub Modal (New) -->
+  <div class="game-hub-backdrop" id="game-hub-modal">
+    <div class="glass-modal game-hub-modal">
+      <i class="ri-gamepad-fill modal-icon"></i>
+      <h3>Vibe Games Hub</h3>
+      <p>Select a game to play while listening to music.</p>
+      
+      <div class="game-options-container">
+        <button class="game-select-card" id="start-pong-btn">
+          <div class="game-card-icon"><i class="ri-ping-pong-fill" style="color: #ff9f43;"></i></div>
+          <div class="game-card-info">
+            <h4>Component Pong</h4>
+            <span>Classic paddle bounce.</span>
+          </div>
+        </button>
+
+        <button class="game-select-card" id="start-merge-btn">
+          <div class="game-card-icon"><i class="ri-stack-fill" style="color: var(--accent-gold);"></i></div>
+          <div class="game-card-info">
+            <h4>Vibe Merge (New!)</h4>
+            <span>Drop & merge icons to build the Golden Vinyl.</span>
+          </div>
+        </button>
+      </div>
+
+      <button id="close-hub-btn" class="glass-btn danger" style="margin-top: 15px; width: 100%;">Cancel</button>
+    </div>
+  </div>
+
+  <!-- Vibe Merge Game UI Layer (Hidden by default) -->
+  <div id="merge-game-layer" class="merge-game-layer">
+    <div class="merge-top-hud">
+      <button id="merge-quit-btn" class="merge-hud-btn"><i class="ri-arrow-left-line"></i></button>
+      <div class="merge-score-display">Score: <span id="merge-score-val">0</span></div>
+      <button id="merge-restart-btn" class="merge-hud-btn"><i class="ri-restart-line"></i></button>
+      
+      <!-- Next Item Preview Bubble -->
+      <div class="next-preview-bubble">
+        <small>Next</small>
+        <div id="next-item-icon-container"></div>
+      </div>
+    </div>
+
+    <!-- Danger Dotted Line -->
+    <div id="merge-danger-line" class="merge-danger-line"></div>
+    
+    <!-- Dropper Guide Line -->
+    <div id="merge-dropper-guide" class="merge-dropper-guide"></div>
+
+    <!-- The container for DOM-based physics objects -->
+    <div id="merge-physics-container"></div>
+  </div>
+
   <!-- 3 Transparent Glassmorphic Bouncing Balls -->
   <button class="bounce-ball" id="open-drawer-btn" title="Open Songs & Playlists">
     <i class="ri-play-list-2-fill"></i>
@@ -110,7 +166,7 @@
   </button>
   <input type="file" id="audio-file-input" accept="audio/*" multiple hidden>
 
-  <!-- Transparent Draggable Volume Pill (Paddle in Game Mode) -->
+  <!-- Transparent Draggable Volume Pill (Floor Base for Merge Game) -->
   <div class="draggable-volume-box" id="draggable-volume" title="Drag anywhere!">
     <i class="ri-volume-up-line" id="volume-icon" title="Mute/Unmute"></i>
     <input type="range" id="volume-slider" min="0" max="1" step="0.01" value="1">
@@ -176,18 +232,13 @@
   <!-- 1. SONGS & PLAYLIST DRAWER (BALL 1) -->
   <aside class="playlist-drawer" id="playlist-drawer">
     <div class="drawer-handle"></div>
-    
     <div class="drawer-header">
       <div>
         <h3>Songs & Playlists</h3>
         <p>Edit Info, Local Storage & Cloud Sync</p>
       </div>
-      <button class="close-drawer-btn" id="close-drawer-btn">
-        <i class="ri-close-line"></i>
-      </button>
+      <button class="close-drawer-btn" id="close-drawer-btn"><i class="ri-close-line"></i></button>
     </div>
-
-    <!-- Custom Playlists Section -->
     <div class="custom-picker-section">
       <div style="display: flex; justify-content: space-between; align-items: center;">
         <span class="picker-title"><i class="ri-folder-add-line"></i> My Playlists:</span>
@@ -195,59 +246,39 @@
       </div>
       <div id="custom-playlists-container" class="horizontal-chips-row"></div>
     </div>
-
-    <!-- Search Bar -->
     <div class="search-box-container">
       <i class="ri-search-2-line search-icon"></i>
       <input type="text" id="playlist-search-input" placeholder="Search track or artist...">
     </div>
-
-    <!-- Playlist Filter Tabs -->
     <div class="playlist-tabs">
       <button class="tab-btn active" id="tab-all-btn">All Tracks</button>
       <button class="tab-btn" id="tab-liked-btn"><i class="ri-heart-fill"></i> Liked (<span id="liked-count">0</span>)</button>
     </div>
-
-    <!-- Dual Upload Cards -->
     <div class="dual-upload-container">
       <label for="main-audio-input" class="upload-action-card global" id="btn-upload-main">
         <i class="ri-cloud-upload-fill"></i>
-        <div class="upload-text">
-          <strong>Upload to Main</strong>
-          <small>Cloud sync • PIN protected</small>
-        </div>
+        <div class="upload-text"><strong>Upload to Main</strong><small>Cloud sync • PIN protected</small></div>
       </label>
       <input type="file" id="main-audio-input" accept="audio/*" hidden>
-
       <label for="drawer-audio-file-input" class="upload-action-card local">
         <i class="ri-hard-drive-2-fill"></i>
-        <div class="upload-text">
-          <strong>Upload Local</strong>
-          <small>Permanent on this device</small>
-        </div>
+        <div class="upload-text"><strong>Upload Local</strong><small>Permanent on this device</small></div>
       </label>
       <input type="file" id="drawer-audio-file-input" accept="audio/*" multiple hidden>
     </div>
-
-    <!-- Scrollable Songs List -->
     <div class="playlist-scroll-list" id="playlist-scroll-list"></div>
   </aside>
 
   <!-- 2. THEME & ATMOSPHERE DRAWER (BALL 2) -->
   <aside class="playlist-drawer theme-drawer" id="theme-drawer">
     <div class="drawer-handle"></div>
-    
     <div class="drawer-header">
       <div>
         <h3>Theme & Ambience Studio</h3>
         <p>Custom Wallpapers, Moods & Rain Synth</p>
       </div>
-      <button class="close-drawer-btn" id="close-theme-btn">
-        <i class="ri-close-line"></i>
-      </button>
+      <button class="close-drawer-btn" id="close-theme-btn"><i class="ri-close-line"></i></button>
     </div>
-
-    <!-- Background Wallpaper Picker -->
     <div class="custom-picker-section">
       <span class="picker-title"><i class="ri-image-2-line"></i> Wallpaper Background:</span>
       <div class="picker-grid">
@@ -255,15 +286,12 @@
         <button class="grid-btn bg-btn" data-bg="1">Wallpaper 2</button>
         <button class="grid-btn bg-btn" data-bg="2">Wallpaper 3</button>
         <button class="grid-btn bg-btn" data-bg="3">Wallpaper 4</button>
-        
         <label for="custom-bg-input" class="grid-btn bg-btn" id="custom-bg-label" style="grid-column: span 2; cursor: pointer;">
-          <i class="ri-image-add-line"></i> <span id="custom-bg-text">+ Custom Wallpaper (JPG, PNG, WEBP...)</span>
+          <i class="ri-image-add-line"></i> <span id="custom-bg-text">+ Custom Wallpaper</span>
         </label>
         <input type="file" id="custom-bg-input" accept="image/*" hidden>
       </div>
     </div>
-
-    <!-- Mood Effects Picker -->
     <div class="custom-picker-section" style="margin-top: 6px;">
       <span class="picker-title"><i class="ri-sparkling-line"></i> Atmospheric Lighting:</span>
       <div class="picker-grid">
@@ -273,13 +301,9 @@
         <button class="grid-btn mood-btn" data-mood="3"><i class="ri-moon-clear-line"></i> Midnight</button>
       </div>
     </div>
-
-    <!-- Lo-Fi Rain Synthesizer -->
     <div class="ambient-mixer-card" style="margin-top: 8px;">
       <div class="ambient-row">
-        <div class="ambient-label">
-          <i class="ri-rainy-line"></i> <span>Rain Lo-Fi Synth</span>
-        </div>
+        <div class="ambient-label"><i class="ri-rainy-line"></i> <span>Rain Lo-Fi Synth</span></div>
         <input type="range" id="rain-slider" min="0" max="1" step="0.05" value="0">
       </div>
     </div>
@@ -289,19 +313,12 @@
   <div class="upload-progress-modal" id="upload-modal">
     <div class="modal-content">
       <div class="spinner"></div>
-      <p id="upload-status-text">Uploading to Main Playlist...</p>
+      <p id="upload-status-text">Uploading to Main...</p>
     </div>
   </div>
 
   <audio id="main-audio" preload="auto"></audio>
 
-  <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js').catch(err => console.warn(err));
-      });
-    }
-  </script>
   <script src="script.js"></script>
 </body>
 </html>

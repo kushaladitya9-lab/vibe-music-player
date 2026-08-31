@@ -318,7 +318,7 @@ async function initPlayer() {
   await fetchSupabaseSongs();
   rebuildPlaylist();
 
-  // Pick a random song on startup
+  // Random song on startup
   if (playlist.length > 0) {
     currentTrackIndex = Math.floor(Math.random() * playlist.length);
     loadTrack(currentTrackIndex);
@@ -337,7 +337,7 @@ async function initPlayer() {
   await fetchGlobalHighScore();
   updateLeaderboardUI();
 
-  // Attempt Autoplay with gesture unlock fallback
+  // Autoplay with gesture unlock fallback
   attemptAutoplay();
 }
 
@@ -378,7 +378,7 @@ async function fetchSupabaseSongs() {
       rebuildPlaylist();
     }
   } catch (err) {
-    console.warn(err);
+    console.warn("Supabase fetch error:", err);
   }
 }
 
@@ -432,7 +432,7 @@ async function handleMainPlaylistUpload(file) {
     if (dbError) throw dbError;
 
     hideUploadModal();
-    alert("Song added to Main Playlist!");
+    alert("Track added to Main Playlist successfully!");
 
     await fetchSupabaseSongs();
     loadTrack(playlist.length - 1);
@@ -545,7 +545,7 @@ function playTrack() {
       updateMediaSessionMetadata(playlist[currentTrackIndex]);
       preloadStandbyTrack();
     }).catch((err) => {
-      console.warn("Playback needed interaction:", err);
+      console.warn("Playback awaiting interaction:", err);
     });
   }
 }
@@ -561,7 +561,7 @@ function attemptAutoplay() {
       updateMediaSessionMetadata(playlist[currentTrackIndex]);
       preloadStandbyTrack();
     }).catch((err) => {
-      console.warn("Autoplay awaiting user interaction:", err);
+      console.warn("Autoplay blocked by browser policy; awaiting gesture:", err);
       const unlockAutoplay = () => {
         playTrack();
         window.removeEventListener("click", unlockAutoplay);
@@ -756,7 +756,7 @@ function toggleLikeCurrentTrack() {
   renderPlaylist();
 }
 
-// Share Current Song (Web Share API + Clipboard Fallback)
+// Share Current Song (Professional English format)
 async function shareCurrentTrack() {
   const currentTrack = playlist[currentTrackIndex];
   if (!currentTrack) return;
@@ -765,7 +765,7 @@ async function shareCurrentTrack() {
   const artistName = (!currentTrack.artist || currentTrack.artist.trim() === "") ? FALLBACK_ARTIST : currentTrack.artist;
   const appUrl = window.location.origin + window.location.pathname;
 
-  const shareText = `🎧 Sun raha hoon: "${trackName}" by ${artistName} on Vibe Music Player ✨\nSunne ke liye click karein:`;
+  const shareText = `🎧 Now listening to: "${trackName}" by ${artistName} on Vibe Music Player ✨\nTune in here:`;
 
   if (navigator.share) {
     try {
@@ -788,7 +788,7 @@ function copyShareFallback(text, url) {
   const fullMsg = `${text} ${url}`;
   if (navigator.clipboard) {
     navigator.clipboard.writeText(fullMsg).then(() => {
-      alert("Link copied! Share it on WhatsApp, Instagram or Snapchat.");
+      alert("Link copied! Share it on WhatsApp, Instagram, or Snapchat.");
     }).catch(() => {
       prompt("Copy link to share:", fullMsg);
     });
@@ -817,22 +817,22 @@ async function editTrackInfo(trackId) {
 
   let isGlobalAdminEdit = false;
 
-  // Agar Main Cloud Playlist ka song hai
+  // Check if track is part of the cloud Main Playlist
   if (trackId.startsWith("sb_")) {
     const editChoice = confirm(
-      `Song: "${currentTitle}"\n\n` +
-      `Kya aap is song ko sabhi users ke liye badalna chahte hain?\n\n` +
-      `• OK = Sabhi ke liye change karein (Admin PIN zaroori hai)\n` +
-      `• Cancel = Sirf apne liye change karein (Personal Override)`
+      `Track: "${currentTitle}"\n\n` +
+      `Would you like to update this track globally for all users?\n\n` +
+      `• Press OK to edit globally for everyone (Admin PIN required)\n` +
+      `• Press Cancel to edit locally for this device only`
     );
 
     if (editChoice) {
-      const pin = prompt("Enter Admin PIN to update for Everyone:");
+      const pin = prompt("Enter Admin PIN to update for everyone:");
       if (pin === null) return;
       if (pin.trim() === ADMIN_PIN) {
         isGlobalAdminEdit = true;
       } else {
-        alert("Incorrect PIN! Personal Edit Mode par switch kar diya gaya hai.");
+        alert("Incorrect PIN! Switched to personal edit mode.");
       }
     }
   }
@@ -862,17 +862,17 @@ async function editTrackInfo(trackId) {
 
       await fetchSupabaseSongs();
       hideUploadModal();
-      alert("Track info sabhi ke liye update ho gaya!");
+      alert("Track details updated globally for all users!");
     } catch (err) {
       hideUploadModal();
       alert("Global update failed: " + err.message);
     }
   } else {
-    // Sirf is device/user ke liye update
+    // Local device-only override
     trackOverrides[trackId] = { title: finalTitle, artist: finalArtist };
     localStorage.setItem("vibe_track_overrides", JSON.stringify(trackOverrides));
     rebuildPlaylist();
-    alert("Track info sirf aapke player ke liye update ho gaya!");
+    alert("Track details updated for this device only!");
   }
 
   if (playlist[currentTrackIndex] && playlist[currentTrackIndex].id === trackId) {
@@ -883,24 +883,65 @@ async function editTrackInfo(trackId) {
 }
 
 // ========================================================
-// 4. DELETE TRACK (USER-SPECIFIC SOFT DELETE)
+// 4. DELETE TRACK (GLOBAL ADMIN DELETE vs. PERSONAL REMOVE)
 // ========================================================
 async function deleteTrack(trackId) {
   const track = playlist.find(t => t.id === trackId);
   if (!track) return;
 
-  if (!confirm(`Kya aap "${track.title}" ko apne player se remove karna chahte hain?`)) return;
+  let deleteForEveryone = false;
+
+  if (trackId.startsWith("sb_")) {
+    const deleteChoice = confirm(
+      `Track: "${track.title}"\n\n` +
+      `Do you want to delete this track from the Main Playlist for everyone?\n\n` +
+      `• Press OK to delete globally for all users (Admin PIN required)\n` +
+      `• Press Cancel to hide/remove it from your device only`
+    );
+
+    if (deleteChoice) {
+      const pin = prompt("Enter Admin PIN to delete globally for everyone:");
+      if (pin === null) return;
+      if (pin.trim() === ADMIN_PIN) {
+        deleteForEveryone = true;
+      } else {
+        alert("Incorrect PIN! Proceeding with local removal only.");
+      }
+    }
+  } else {
+    if (!confirm(`Are you sure you want to remove "${track.title}" from your player?`)) return;
+  }
 
   const wasPlaying = playlist[currentTrackIndex] && playlist[currentTrackIndex].id === trackId;
 
-  if (track.isLocal) {
+  if (deleteForEveryone && supabaseClient) {
+    showUploadModal("Deleting track globally from Main Playlist...");
+    try {
+      const dbId = trackId.replace("sb_", "");
+      const { error } = await supabaseClient
+        .from('songs')
+        .delete()
+        .eq('id', dbId);
+
+      if (error) throw error;
+      await fetchSupabaseSongs();
+      hideUploadModal();
+      alert("Track deleted globally for all users!");
+    } catch (err) {
+      hideUploadModal();
+      alert("Global deletion failed: " + err.message);
+      return;
+    }
+  } else if (track.isLocal) {
     await deleteLocalTrackFromDB(trackId);
     localTracks = localTracks.filter(t => t.id !== trackId);
+    alert("Local track deleted from this device.");
   } else {
     if (!hiddenTrackIds.includes(trackId)) {
       hiddenTrackIds.push(trackId);
       localStorage.setItem("vibe_hidden_songs", JSON.stringify(hiddenTrackIds));
     }
+    alert("Track removed from your player view.");
   }
 
   rebuildPlaylist();
@@ -946,7 +987,7 @@ async function handleLocalFileUpload(event) {
   const files = event.target.files;
   if (!files || files.length === 0) return;
 
-  showUploadModal("Saving songs permanently to device...");
+  showUploadModal("Saving tracks permanently to this device...");
 
   for (let i = 0; i < files.length; i++) {
     const file = files[i];
@@ -978,7 +1019,7 @@ async function handleLocalFileUpload(event) {
   playTrack();
   closeAllDrawers();
   event.target.value = "";
-  alert("Local songs saved permanently to this device!");
+  alert("Local tracks saved permanently to this device!");
 }
 
 // ========================================================
@@ -1102,7 +1143,7 @@ function renderPlaylist() {
   if (targetTracks.length === 0) {
     const emptyMsg = document.createElement("p");
     emptyMsg.style.cssText = "text-align: center; color: rgba(255,255,255,0.4); font-size: 0.85rem; padding: 25px 0;";
-    emptyMsg.textContent = "No songs found.";
+    emptyMsg.textContent = "No tracks found.";
     playlistScrollList.appendChild(emptyMsg);
     return;
   }
@@ -1126,7 +1167,7 @@ function renderPlaylist() {
       </div>
       <div class="item-actions">
         <button class="item-edit-btn" title="Edit Info"><i class="ri-edit-line"></i></button>
-        <button class="item-delete-btn" title="Remove song"><i class="ri-delete-bin-line"></i></button>
+        <button class="item-delete-btn" title="Remove Track"><i class="ri-delete-bin-line"></i></button>
         <button class="item-heart-btn ${isLiked ? "liked" : ""}">
           <i class="${isLiked ? "ri-heart-fill" : "ri-heart-line"}"></i>
         </button>
@@ -1538,7 +1579,7 @@ async function claimOrUpdateGameTag(newTag) {
     if (existing && existing.length > 0) {
       const match = existing[0];
       if (match.device_id && match.device_id !== DEVICE_ID) {
-        alert(`⚠️ Game Tag "${newTag}" is already taken by another player! Please pick a unique tag.`);
+        alert(`⚠️ Game Tag "${newTag}" is already taken by another player! Please choose a unique tag.`);
         return false;
       }
     }
@@ -1943,7 +1984,7 @@ function setupListeners() {
     mainAudioInput.addEventListener("change", (e) => {
       if (!e.target.files || e.target.files.length === 0) return;
       const file = e.target.files[0];
-      const userPin = prompt(`Enter PIN to upload "${file.name}" to Main Playlist:`);
+      const userPin = prompt(`Enter Admin PIN to upload "${file.name}" to Main Playlist:`);
       if (userPin === null) { e.target.value = ""; return; }
 
       if (userPin.trim() === ADMIN_PIN) {

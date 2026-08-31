@@ -14,7 +14,6 @@ try {
   console.warn("Supabase init error:", e);
 }
 
-// Device UUID Generator (Ensures unique ownership per device)
 function getOrCreateDeviceId() {
   let devId = localStorage.getItem("vibe_device_id");
   if (!devId) {
@@ -157,6 +156,7 @@ async function deleteLocalTrackFromDB(id) {
 // State Management
 let supabaseTracks = [];
 let localTracks = [];
+let globallyDeletedBaseTrackIds = [];
 let playlist = [...baseTracks];
 let currentTrackIndex = 0;
 let isShuffle = false;
@@ -337,7 +337,6 @@ async function initPlayer() {
   await fetchGlobalHighScore();
   updateLeaderboardUI();
 
-  // Autoplay with gesture unlock fallback
   attemptAutoplay();
 }
 
@@ -363,27 +362,40 @@ async function loadSavedLocalSongs() {
 async function fetchSupabaseSongs() {
   if (!supabaseClient) return;
   try {
+    // 1. Fetch cloud playlist tracks
     const { data, error } = await supabaseClient
       .from('songs')
       .select('*')
       .order('created_at', { ascending: true });
 
-    if (!error && data && data.length > 0) {
+    if (!error && data) {
       supabaseTracks = data.map(item => ({
         id: `sb_${item.id}`,
         title: item.title,
         artist: item.artist || FALLBACK_ARTIST,
         src: item.src
       }));
-      rebuildPlaylist();
     }
+
+    // 2. Fetch globally deleted base track IDs
+    const { data: delBaseData } = await supabaseClient
+      .from('deleted_base_tracks')
+      .select('track_id');
+
+    if (delBaseData) {
+      globallyDeletedBaseTrackIds = delBaseData.map(d => d.track_id);
+    }
+
+    rebuildPlaylist();
   } catch (err) {
     console.warn("Supabase fetch error:", err);
   }
 }
 
 function rebuildPlaylist() {
-  playlist = [...baseTracks, ...supabaseTracks, ...localTracks]
+  const activeBaseTracks = baseTracks.filter(t => !globallyDeletedBaseTrackIds.includes(t.id));
+
+  playlist = [...activeBaseTracks, ...supabaseTracks, ...localTracks]
     .filter(track => !hiddenTrackIds.includes(track.id))
     .map(track => {
       if (trackOverrides[track.id]) {
@@ -817,7 +829,6 @@ async function editTrackInfo(trackId) {
 
   let isGlobalAdminEdit = false;
 
-  // Check if track is part of the cloud Main Playlist
   if (trackId.startsWith("sb_")) {
     const editChoice = confirm(
       `Track: "${currentTitle}"\n\n` +
@@ -868,7 +879,6 @@ async function editTrackInfo(trackId) {
       alert("Global update failed: " + err.message);
     }
   } else {
-    // Local device-only override
     trackOverrides[trackId] = { title: finalTitle, artist: finalArtist };
     localStorage.setItem("vibe_track_overrides", JSON.stringify(trackOverrides));
     rebuildPlaylist();
@@ -891,10 +901,11 @@ async function deleteTrack(trackId) {
 
   let deleteForEveryone = false;
 
-  if (trackId.startsWith("sb_")) {
+  // Prompt options for both Cloud & Built-in Base tracks
+  if (trackId.startsWith("sb_") || trackId.startsWith("s")) {
     const deleteChoice = confirm(
       `Track: "${track.title}"\n\n` +
-      `Do you want to delete this track from the Main Playlist for everyone?\n\n` +
+      `Do you want to delete this track globally for everyone?\n\n` +
       `• Press OK to delete globally for all users (Admin PIN required)\n` +
       `• Press Cancel to hide/remove it from your device only`
     );
@@ -914,16 +925,26 @@ async function deleteTrack(trackId) {
 
   const wasPlaying = playlist[currentTrackIndex] && playlist[currentTrackIndex].id === trackId;
 
+  // A. Global Deletion Mode
   if (deleteForEveryone && supabaseClient) {
-    showUploadModal("Deleting track globally from Main Playlist...");
+    showUploadModal("Deleting track globally for everyone...");
     try {
-      const dbId = trackId.replace("sb_", "");
-      const { error } = await supabaseClient
-        .from('songs')
-        .delete()
-        .eq('id', dbId);
+      if (trackId.startsWith("sb_")) {
+        // Delete from Supabase songs table
+        const dbId = trackId.replace("sb_", "");
+        const { error } = await supabaseClient
+          .from('songs')
+          .delete()
+          .eq('id', dbId);
+        if (error) throw error;
+      } else if (trackId.startsWith("s")) {
+        // Insert into deleted_base_tracks table
+        const { error } = await supabaseClient
+          .from('deleted_base_tracks')
+          .upsert([{ track_id: trackId }]);
+        if (error) throw error;
+      }
 
-      if (error) throw error;
       await fetchSupabaseSongs();
       hideUploadModal();
       alert("Track deleted globally for all users!");
@@ -932,7 +953,9 @@ async function deleteTrack(trackId) {
       alert("Global deletion failed: " + err.message);
       return;
     }
-  } else if (track.isLocal) {
+  } 
+  // B. Local / Device Deletion Mode
+  else if (track.isLocal) {
     await deleteLocalTrackFromDB(trackId);
     localTracks = localTracks.filter(t => t.id !== trackId);
     alert("Local track deleted from this device.");
@@ -1484,7 +1507,6 @@ function initArcadeUI() {
   });
   document.getElementById("arcade-save-nick-btn").addEventListener("click", saveArcadeNickname);
 
-  // Leaderboard Side-Tab Handlers
   if (floatingScoreTab) {
     floatingScoreTab.addEventListener("click", () => {
       fetchGlobalHighScore().then(() => {

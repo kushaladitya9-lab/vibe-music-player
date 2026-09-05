@@ -12,10 +12,10 @@
   --font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
   --transition: all 0.25s cubic-bezier(0.25, 1, 0.5, 1);
 
-  /* Default Variables */
+  /* Default Initial Variables */
   --accent-primary: #ffde59;
   --accent-secondary: #ff9f43;
-  --accent-glow: rgba(255, 222, 89, 0.35);
+  --accent-glow: rgba(255, 222, 89, 0.4);
   --progress-fill: #ffffff;
   --glass-border: rgba(255, 255, 255, 0.28);
   --card-bg: rgba(255, 255, 255, 0.06);
@@ -31,15 +31,15 @@ body.theme-retro {
 /* CYBER BASE ENGINE */
 body.theme-cyber {
   background-color: #030508 !important;
-  --drawer-bg: rgba(5, 8, 14, 0.98);
+  --drawer-bg: rgba(6, 10, 18, 0.98);
   --card-bg: rgba(255, 255, 255, 0.04);
 }
 
-/* ACCENT HUES (WORKS ACROSS BOTH RETRO & CYBER) */
+/* ACCENT HUES (WORKS UNIVERSALLY IN BOTH RETRO & CYBER) */
 body.accent-gold {
   --accent-primary: #ffde59;
   --accent-secondary: #ff9f43;
-  --accent-glow: rgba(255, 222, 89, 0.4);
+  --accent-glow: rgba(255, 222, 89, 0.45);
   --progress-fill: #ffffff;
   --glass-border: rgba(255, 222, 89, 0.35);
 }
@@ -47,25 +47,33 @@ body.accent-gold {
 body.accent-cyan {
   --accent-primary: #00f2fe;
   --accent-secondary: #9d4edd;
-  --accent-glow: rgba(0, 242, 254, 0.45);
+  --accent-glow: rgba(0, 242, 254, 0.5);
   --progress-fill: linear-gradient(90deg, #9d4edd 0%, #00f2fe 100%);
-  --glass-border: rgba(0, 242, 254, 0.35);
+  --glass-border: rgba(0, 242, 254, 0.4);
 }
 
 body.accent-magenta {
   --accent-primary: #ff007f;
   --accent-secondary: #7928ca;
-  --accent-glow: rgba(255, 0, 127, 0.45);
+  --accent-glow: rgba(255, 0, 127, 0.5);
   --progress-fill: linear-gradient(90deg, #7928ca 0%, #ff007f 100%);
-  --glass-border: rgba(255, 0, 127, 0.35);
+  --glass-border: rgba(255, 0, 127, 0.4);
 }
 
 body.accent-emerald {
   --accent-primary: #00ff87;
   --accent-secondary: #60efff;
-  --accent-glow: rgba(0, 255, 135, 0.45);
+  --accent-glow: rgba(0, 255, 135, 0.5);
   --progress-fill: linear-gradient(90deg, #00b4d8 0%, #00ff87 100%);
-  --glass-border: rgba(0, 255, 135, 0.35);
+  --glass-border: rgba(0, 255, 135, 0.4);
+}
+
+/* Cyber Mode Extra Visuals */
+body.theme-cyber .track-title {
+  text-shadow: 0 0 16px var(--accent-glow), 0 3px 12px rgba(0, 0, 0, 0.8);
+}
+body.theme-cyber .bounce-ball {
+  box-shadow: 0 0 15px var(--accent-glow), 0 8px 30px rgba(0, 0, 0, 0.6);
 }
 
 * {
@@ -402,7 +410,7 @@ body.zen-mode .floating-score-tab {
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
 }
 
-/* Transparent Glassmorphic Volume Pill (Paddle in Game Mode) */
+/* Transparent Glassmorphic Volume Pill */
 .draggable-volume-box {
   position: fixed;
   top: 0;
@@ -568,7 +576,7 @@ body.zen-mode .floating-score-tab {
   box-shadow: 0 -20px 50px rgba(0, 0, 0, 0.85);
 }
 .playlist-drawer.active { transform: translateX(-50%) translateY(0); }
-.theme-drawer { height: auto; max-height: 80dvh; }
+.theme-drawer { height: auto; max-height: 82dvh; }
 
 .drawer-handle { width: 40px; height: 4px; background: rgba(255, 255, 255, 0.3); border-radius: 10px; margin: 0 auto; }
 .drawer-header { display: flex; justify-content: space-between; align-items: center; }
@@ -587,11 +595,21 @@ body.zen-mode .floating-score-tab {
 .picker-title { font-size: 0.75rem; font-weight: 700; color: rgba(255, 255, 255, 0.8); display: flex; align-items: center; gap: 5px; }
 .picker-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
 
+/* 4 Column Wallpaper Grid */
+.wallpaper-grid {
+  grid-template-columns: repeat(4, 1fr) !important;
+}
+.custom-bg-cell {
+  grid-column: span 4 !important;
+  cursor: pointer;
+}
+
 .grid-btn {
   background: var(--card-bg); border: 1px solid var(--glass-border);
-  color: #ffffff; padding: 7px 10px; border-radius: 10px; font-size: 0.78rem;
-  font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;
+  color: #ffffff; padding: 7px 8px; border-radius: 10px; font-size: 0.76rem;
+  font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px;
   transition: var(--transition);
+  white-space: nowrap;
 }
 .grid-btn:hover { background: rgba(255, 255, 255, 0.12); border-color: var(--accent-primary); }
 .grid-btn.active { background: var(--accent-glow); border-color: var(--accent-primary); color: var(--accent-primary); }
@@ -602,6 +620,7 @@ body.zen-mode .floating-score-tab {
   color: #fff; padding: 6px 12px; border-radius: 50px; font-size: 0.75rem;
   font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px;
   transition: var(--transition);
+  white-space: nowrap;
 }
 .palette-chip.active { border-color: var(--accent-primary); background: var(--accent-glow); color: var(--accent-primary); }
 .chip-dot { width: 8px; height: 8px; border-radius: 50%; }

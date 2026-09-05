@@ -262,10 +262,10 @@
       </div>
     </div>
 
-    <!-- All Wallpapers Picker (Retro 1-4 + Cyber 1-4 + Custom) -->
+    <!-- All 8 Wallpapers (4 Retro + 4 Cyber in a clean 4-column grid) -->
     <div class="custom-picker-section">
       <span class="picker-title"><i class="ri-image-2-line"></i> Wallpaper Background:</span>
-      <div class="picker-grid">
+      <div class="picker-grid wallpaper-grid">
         <button class="grid-btn bg-btn active" data-bg="0">Retro 1</button>
         <button class="grid-btn bg-btn" data-bg="1">Retro 2</button>
         <button class="grid-btn bg-btn" data-bg="2">Retro 3</button>
@@ -275,8 +275,8 @@
         <button class="grid-btn bg-btn" data-bg="6">Cyber 3</button>
         <button class="grid-btn bg-btn" data-bg="7">Cyber 4</button>
         
-        <label for="custom-bg-input" class="grid-btn bg-btn" id="custom-bg-label" style="grid-column: span 2; cursor: pointer;">
-          <i class="ri-image-add-line"></i> <span id="custom-bg-text">+ Custom Wallpaper (JPG, PNG...)</span>
+        <label for="custom-bg-input" class="grid-btn bg-btn custom-bg-cell" id="custom-bg-label">
+          <i class="ri-image-add-line"></i> <span id="custom-bg-text">+ Custom Wallpaper</span>
         </label>
         <input type="file" id="custom-bg-input" accept="image/*" hidden>
       </div>

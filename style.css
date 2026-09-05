@@ -38,7 +38,7 @@ body.theme-cyber .track-title {
   text-shadow: 0 0 16px var(--accent-glow), 0 3px 12px rgba(0, 0, 0, 0.8);
 }
 body.theme-cyber .bounce-ball,
-body.theme-cyber .assist-ball {
+body.theme-cyber .floating-score-tab {
   box-shadow: 0 0 15px var(--accent-glow), 0 8px 30px rgba(0, 0, 0, 0.6);
 }
 
@@ -55,18 +55,17 @@ body.theme-calm .track-title {
   letter-spacing: -0.2px;
 }
 body.theme-calm .bounce-ball,
-body.theme-calm .assist-ball,
 body.theme-calm .draggable-volume-box,
 body.theme-calm .playlist-drawer {
   backdrop-filter: blur(24px) saturate(1.3);
   -webkit-backdrop-filter: blur(24px) saturate(1.3);
 }
 
-/* UNIVERSAL ACCENT HUES */
+/* ACCENTS */
 body.accent-gold {
   --accent-primary: #ffde59;
   --accent-secondary: #ff9f43;
-  --accent-glow: rgba(255, 222, 89, 0.4);
+  --accent-glow: rgba(255, 222, 89, 0.45);
   --progress-fill: #ffffff;
   --glass-border: rgba(255, 222, 89, 0.35);
 }
@@ -133,7 +132,7 @@ body.mood-sunset .app-background { filter: saturate(1.1) brightness(1.0); }
 body.mood-rainy .app-background { filter: saturate(0.8) brightness(0.75) hue-rotate(15deg); }
 body.mood-night .app-background { filter: saturate(0.7) brightness(0.52) hue-rotate(200deg); }
 
-/* Zen Mode Active State */
+/* Zen Mode */
 body.zen-mode .player-container,
 body.zen-mode .scene-switcher-container,
 body.zen-mode .bounce-ball,
@@ -233,7 +232,7 @@ body.zen-mode .floating-score-tab {
 .refresh-btn i { font-size: 0.95rem; color: #54a0ff; }
 .spin-anim { animation: spin 0.7s cubic-bezier(0.4, 0, 0.2, 1) infinite; }
 
-/* Freely Movable Floating Trophy Tab */
+/* Freely Movable Trophy Tab (Leaderboard Button) */
 .floating-score-tab {
   position: fixed !important;
   top: 0;
@@ -241,24 +240,24 @@ body.zen-mode .floating-score-tab {
   width: 44px;
   height: 44px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  background: rgba(22, 26, 35, 0.82);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   border: 1.5px solid var(--glass-border);
-  color: #fff;
+  color: var(--accent-primary);
   display: grid;
   place-items: center;
-  font-size: 1.25rem;
+  font-size: 1.35rem;
   cursor: grab;
   touch-action: none;
   z-index: 9990;
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.55);
   will-change: transform;
   transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
 }
 
 .floating-score-tab:active { cursor: grabbing; border-color: var(--accent-primary); }
-.floating-score-tab i { color: var(--accent-primary); pointer-events: none; }
+.floating-score-tab i { pointer-events: none; filter: drop-shadow(0 0 6px var(--accent-glow)); }
 .floating-score-tab:hover {
   background: rgba(255, 255, 255, 0.2);
   border-color: var(--accent-primary);
@@ -269,36 +268,35 @@ body.zen-mode .floating-score-tab {
 .leaderboard-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.55);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   z-index: 10001;
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.3s ease;
 }
-
 .leaderboard-backdrop.active { opacity: 1; pointer-events: auto; }
 
 .leaderboard-sidebar {
   position: fixed;
   top: 0;
   right: 0;
-  width: 290px;
-  max-width: 85vw;
+  width: 300px;
+  max-width: 86vw;
   height: 100dvh;
   background: var(--drawer-bg);
-  backdrop-filter: blur(28px);
-  -webkit-backdrop-filter: blur(28px);
+  backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(30px);
   border-left: 1.5px solid var(--glass-border);
   z-index: 10002;
-  padding: 22px 18px;
+  padding: max(22px, env(safe-area-inset-top) + 15px) 18px 22px;
   display: flex;
   flex-direction: column;
   gap: 16px;
   transform: translateX(105%);
   transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
-  box-shadow: -10px 0 35px rgba(0, 0, 0, 0.6);
+  box-shadow: -12px 0 40px rgba(0, 0, 0, 0.7);
 }
 
 .leaderboard-sidebar.active { transform: translateX(0); }
@@ -410,7 +408,7 @@ body.zen-mode .floating-score-tab {
 }
 
 /* ========================================================
-   PHONE ASSIST BALL (ASSISTIVE TOUCH COMPONENT)
+   PHONE ASSIST BALL (BEZEL DOCKING & HALF-HIDE)
    ======================================================== */
 .assist-ball-wrapper {
   position: fixed;
@@ -418,85 +416,94 @@ body.zen-mode .floating-score-tab {
   left: 0;
   z-index: 9999;
   touch-action: none;
+  pointer-events: auto;
+  will-change: transform, opacity;
+  transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.4s ease;
+}
+
+/* Docked State: 50% Off-Screen & Dimmed */
+.assist-ball-wrapper.docked-right {
+  transform: translate3d(calc(100vw - 22px), var(--assist-y, 45vh), 0) !important;
+  opacity: 0.35;
+}
+.assist-ball-wrapper.docked-left {
+  transform: translate3d(-26px, var(--assist-y, 45vh), 0) !important;
+  opacity: 0.35;
+}
+
+/* Hover or Active Touch pops back fully */
+.assist-ball-wrapper:hover,
+.assist-ball-wrapper.active {
+  opacity: 1 !important;
+}
+.assist-ball-wrapper.docked-right:hover {
+  transform: translate3d(calc(100vw - 58px), var(--assist-y, 45vh), 0) !important;
+}
+.assist-ball-wrapper.docked-left:hover {
+  transform: translate3d(8px, var(--assist-y, 45vh), 0) !important;
 }
 
 .assist-ball {
-  width: 50px;
-  height: 50px;
+  width: 52px;
+  height: 52px;
   border-radius: 50%;
   cursor: grab;
   display: grid;
   place-items: center;
-  font-size: 1.5rem;
-  border: 1.5px solid var(--glass-border);
-  background: rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.45);
-  will-change: transform, opacity;
-  transition: opacity 0.5s cubic-bezier(0.25, 1, 0.5, 1), transform 0.2s ease, border-color 0.2s ease;
   user-select: none;
+  filter: drop-shadow(0 6px 16px rgba(0, 0, 0, 0.5));
 }
-
 .assist-ball:active { cursor: grabbing; }
 
-/* Idle Dimming State (Fades into side edge when inactive) */
-.assist-ball.idle {
-  opacity: 0.32;
-  filter: grayscale(40%);
-}
-.assist-ball.idle:hover,
-.assist-ball:hover {
-  opacity: 1;
-  filter: grayscale(0%);
-  border-color: var(--accent-primary);
+.assist-skin-slot {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
 }
 
-/* Assist Ball Skins */
-.assist-ball.skin-orange {
-  background: radial-gradient(circle at 35% 35%, #ff9f43, #ee5253);
-  border-color: rgba(255, 255, 255, 0.5);
-  box-shadow: 0 6px 20px rgba(238, 82, 83, 0.45);
+.assist-svg-icon {
+  width: 50px;
+  height: 50px;
+  filter: drop-shadow(0 2px 5px rgba(0,0,0,0.3));
 }
+
+/* Assist Skins styling */
 .assist-ball.skin-glass {
   background: rgba(255, 255, 255, 0.12);
-  border-color: rgba(255, 255, 255, 0.4);
+  border: 1.5px solid rgba(255, 255, 255, 0.4);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: inset 0 0 10px rgba(255, 255, 255, 0.2);
 }
 .assist-ball.skin-cyber {
-  background: radial-gradient(circle, #00f2fe, #7928ca);
-  border-color: #00f2fe;
+  background: radial-gradient(circle, #00f2fe 10%, #7928ca 80%);
+  border: 1.5px solid #00f2fe;
   box-shadow: 0 0 15px rgba(0, 242, 254, 0.6);
 }
 .assist-ball.skin-star {
   background: radial-gradient(circle, #ffde59, #ff9f43);
-  border-color: #ffde59;
+  border: 1.5px solid #ffde59;
   box-shadow: 0 0 15px rgba(255, 222, 89, 0.6);
 }
 
-.assist-ball-inner {
-  pointer-events: none;
-  font-size: 1.4rem;
-  display: grid;
-  place-items: center;
-}
-
-/* Assist Radial / Floating Popup Menu */
+/* Assist Menu Popup (Sits Beside the Ball without overlapping) */
 .assist-radial-menu {
   position: absolute;
-  top: -8px;
-  left: -8px;
+  top: 50%;
+  transform: translateY(-50%) scale(0.85);
   background: var(--drawer-bg);
-  backdrop-filter: blur(28px);
-  -webkit-backdrop-filter: blur(28px);
+  backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(30px);
   border: 1.5px solid var(--glass-border);
   border-radius: 20px;
-  padding: 10px;
+  padding: 8px 10px;
   display: flex;
   gap: 8px;
-  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.7);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.75);
   opacity: 0;
   pointer-events: none;
-  transform: scale(0.85);
   transition: opacity 0.25s ease, transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   white-space: nowrap;
 }
@@ -504,15 +511,15 @@ body.zen-mode .floating-score-tab {
 .assist-radial-menu.active {
   opacity: 1;
   pointer-events: auto;
-  transform: scale(1);
+  transform: translateY(-50%) scale(1);
 }
 
 .assist-action-btn {
   background: var(--card-bg);
   border: 1px solid var(--glass-border);
   color: #fff;
-  width: 52px;
-  height: 52px;
+  width: 50px;
+  height: 50px;
   border-radius: 14px;
   display: flex;
   flex-direction: column;
@@ -522,7 +529,6 @@ body.zen-mode .floating-score-tab {
   cursor: pointer;
   transition: var(--transition);
 }
-
 .assist-action-btn i { font-size: 1.15rem; color: var(--accent-primary); }
 .assist-action-btn span { font-size: 0.62rem; font-weight: 700; color: rgba(255, 255, 255, 0.85); }
 .assist-action-btn:hover {
@@ -531,7 +537,7 @@ body.zen-mode .floating-score-tab {
   transform: translateY(-2px);
 }
 
-/* Volume Pill */
+/* Draggable Volume Box */
 .draggable-volume-box {
   position: fixed;
   top: 0;
@@ -553,7 +559,6 @@ body.zen-mode .floating-score-tab {
   will-change: transform;
   transition: border-color 0.3s ease, box-shadow 0.3s ease;
 }
-
 .draggable-volume-box:active { cursor: grabbing; border-color: var(--accent-primary); }
 .draggable-volume-box i#volume-icon { font-size: 1.15rem; color: #fff; cursor: pointer; }
 .draggable-volume-box input[type="range"] {
@@ -564,7 +569,6 @@ body.zen-mode .floating-score-tab {
   -webkit-appearance: none; appearance: none; width: 12px; height: 12px;
   border-radius: 50%; background: #ffffff; cursor: pointer;
 }
-
 .draggable-volume-box.game-paddle-mode {
   border-color: var(--accent-primary) !important;
   box-shadow: 0 0 25px var(--accent-glow) !important;
@@ -621,16 +625,10 @@ body.zen-mode .floating-score-tab {
   padding: 2px;
   transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), color 0.2s ease;
 }
-
-.heart-btn:hover,
-.share-btn:hover { transform: scale(1.22); }
+.heart-btn:hover, .share-btn:hover { transform: scale(1.22); }
 .heart-btn:hover { color: var(--heart-red); }
 .share-btn:hover { color: var(--accent-primary); }
-
-.heart-btn.liked {
-  color: var(--heart-red) !important;
-  filter: drop-shadow(0 0 10px rgba(255, 71, 87, 0.8));
-}
+.heart-btn.liked { color: var(--heart-red) !important; filter: drop-shadow(0 0 10px rgba(255, 71, 87, 0.8)); }
 
 .track-artist {
   margin-top: 6px;
@@ -645,8 +643,7 @@ body.zen-mode .floating-score-tab {
 .seek-container { width: 100%; padding: 10px 0; cursor: pointer; }
 .seek-bar { width: 100%; height: 4.5px; background: var(--progress-bg); border-radius: 4px; position: relative; }
 .seek-progress {
-  width: 0%;
-  height: 100%;
+  width: 0%; height: 100%;
   background: var(--progress-fill);
   border-radius: 4px;
   box-shadow: 0 0 10px var(--accent-glow);

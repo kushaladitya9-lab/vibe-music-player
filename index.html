@@ -29,7 +29,7 @@
   <link href="https://cdn.jsdelivr.net/npm/remixicon@4.2.0/fonts/remixicon.css" rel="stylesheet"/>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
-<body class="theme-retro accent-cyan mood-sunset">
+<body class="theme-retro accent-gold mood-sunset">
 
   <!-- Background & Weather Layer -->
   <div class="app-background" id="app-background"></div>
@@ -38,8 +38,8 @@
 
   <!-- Top Action Container (Aesthetic Mode, Mood, Zen, Game & Sync) -->
   <div class="scene-switcher-container">
-    <button class="scene-btn mode-btn" id="mode-toggle-btn" title="Switch Aesthetic Engine (Retro / Cyber Neon)">
-      <i class="ri-sparkling-fill" id="mode-icon"></i>
+    <button class="scene-btn mode-btn" id="mode-toggle-btn" title="Switch Aesthetic Engine (Retro / Cyber)">
+      <i class="ri-radio-2-line" id="mode-icon"></i>
       <span id="mode-label">Retro</span>
     </button>
     <button class="scene-btn" id="mood-toggle-btn" title="Click to cycle Mood">
@@ -235,7 +235,7 @@
     <div class="drawer-header">
       <div>
         <h3>Aesthetic Studio</h3>
-        <p>Themes, Neon Palettes & Atmosphere</p>
+        <p>Themes, Neon Accents & Wallpapers</p>
       </div>
       <button class="close-drawer-btn" id="close-theme-btn">
         <i class="ri-close-line"></i>
@@ -246,29 +246,34 @@
     <div class="custom-picker-section">
       <span class="picker-title"><i class="ri-magic-line"></i> Aesthetic Engine:</span>
       <div class="picker-grid">
-        <button class="grid-btn engine-btn active" id="btn-engine-retro"><i class="ri-radio-2-line"></i> Retro Tapri Lo-Fi</button>
-        <button class="grid-btn engine-btn" id="btn-engine-cyber"><i class="ri-flashlight-line"></i> Cyber Neon 2099</button>
+        <button class="grid-btn engine-btn active" id="btn-engine-retro"><i class="ri-radio-2-line"></i> Retro</button>
+        <button class="grid-btn engine-btn" id="btn-engine-cyber"><i class="ri-flashlight-line"></i> Cyber</button>
       </div>
     </div>
 
-    <!-- Cyber Neon Palette Accents (Visible in Cyber Mode) -->
-    <div class="custom-picker-section" id="cyber-palette-section" style="display: none;">
-      <span class="picker-title"><i class="ri-contrast-drop-2-line"></i> Cyber Accent Hue:</span>
+    <!-- Accent Hue Palette (Permanently Available in Both Modes) -->
+    <div class="custom-picker-section" id="cyber-palette-section">
+      <span class="picker-title"><i class="ri-contrast-drop-2-line"></i> Accent Hue Glow:</span>
       <div class="palette-chips-row">
-        <button class="palette-chip active" data-accent="cyan"><span class="chip-dot dot-cyan"></span> Cyan & Violet</button>
+        <button class="palette-chip active" data-accent="gold"><span class="chip-dot dot-gold"></span> Amber Gold</button>
+        <button class="palette-chip" data-accent="cyan"><span class="chip-dot dot-cyan"></span> Electric Cyan</button>
         <button class="palette-chip" data-accent="magenta"><span class="chip-dot dot-magenta"></span> Hot Magenta</button>
         <button class="palette-chip" data-accent="emerald"><span class="chip-dot dot-emerald"></span> Matrix Emerald</button>
       </div>
     </div>
 
-    <!-- Background Wallpaper Picker -->
+    <!-- All Wallpapers Picker (Retro 1-4 + Cyber 1-4 + Custom) -->
     <div class="custom-picker-section">
       <span class="picker-title"><i class="ri-image-2-line"></i> Wallpaper Background:</span>
       <div class="picker-grid">
-        <button class="grid-btn bg-btn active" data-bg="0">Wallpaper 1</button>
-        <button class="grid-btn bg-btn" data-bg="1">Wallpaper 2</button>
-        <button class="grid-btn bg-btn" data-bg="2">Wallpaper 3</button>
-        <button class="grid-btn bg-btn" data-bg="3">Wallpaper 4</button>
+        <button class="grid-btn bg-btn active" data-bg="0">Retro 1</button>
+        <button class="grid-btn bg-btn" data-bg="1">Retro 2</button>
+        <button class="grid-btn bg-btn" data-bg="2">Retro 3</button>
+        <button class="grid-btn bg-btn" data-bg="3">Retro 4</button>
+        <button class="grid-btn bg-btn" data-bg="4">Cyber 1</button>
+        <button class="grid-btn bg-btn" data-bg="5">Cyber 2</button>
+        <button class="grid-btn bg-btn" data-bg="6">Cyber 3</button>
+        <button class="grid-btn bg-btn" data-bg="7">Cyber 4</button>
         
         <label for="custom-bg-input" class="grid-btn bg-btn" id="custom-bg-label" style="grid-column: span 2; cursor: pointer;">
           <i class="ri-image-add-line"></i> <span id="custom-bg-text">+ Custom Wallpaper (JPG, PNG...)</span>

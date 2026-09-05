@@ -12,7 +12,7 @@
   --font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
   --transition: all 0.25s cubic-bezier(0.25, 1, 0.5, 1);
 
-  /* Retro Default Theme */
+  /* Default Variables */
   --accent-primary: #ffde59;
   --accent-secondary: #ff9f43;
   --accent-glow: rgba(255, 222, 89, 0.35);
@@ -21,15 +21,30 @@
   --card-bg: rgba(255, 255, 255, 0.06);
 }
 
-/* CYBER NEON ENGINE OVERRIDES */
+/* RETRO BASE ENGINE */
+body.theme-retro {
+  background-color: #000000;
+  --drawer-bg: rgba(16, 20, 26, 0.96);
+  --card-bg: rgba(255, 255, 255, 0.05);
+}
+
+/* CYBER BASE ENGINE */
 body.theme-cyber {
   background-color: #030508 !important;
   --drawer-bg: rgba(5, 8, 14, 0.98);
   --card-bg: rgba(255, 255, 255, 0.04);
 }
 
-/* Cyber Accent 1: Electric Cyan & Violet (Default Cyber) */
-body.theme-cyber.accent-cyan {
+/* ACCENT HUES (WORKS ACROSS BOTH RETRO & CYBER) */
+body.accent-gold {
+  --accent-primary: #ffde59;
+  --accent-secondary: #ff9f43;
+  --accent-glow: rgba(255, 222, 89, 0.4);
+  --progress-fill: #ffffff;
+  --glass-border: rgba(255, 222, 89, 0.35);
+}
+
+body.accent-cyan {
   --accent-primary: #00f2fe;
   --accent-secondary: #9d4edd;
   --accent-glow: rgba(0, 242, 254, 0.45);
@@ -37,8 +52,7 @@ body.theme-cyber.accent-cyan {
   --glass-border: rgba(0, 242, 254, 0.35);
 }
 
-/* Cyber Accent 2: Hot Magenta / Cyberpunk Pink */
-body.theme-cyber.accent-magenta {
+body.accent-magenta {
   --accent-primary: #ff007f;
   --accent-secondary: #7928ca;
   --accent-glow: rgba(255, 0, 127, 0.45);
@@ -46,8 +60,7 @@ body.theme-cyber.accent-magenta {
   --glass-border: rgba(255, 0, 127, 0.35);
 }
 
-/* Cyber Accent 3: Matrix Emerald */
-body.theme-cyber.accent-emerald {
+body.accent-emerald {
   --accent-primary: #00ff87;
   --accent-secondary: #60efff;
   --accent-glow: rgba(0, 255, 135, 0.45);
@@ -592,6 +605,7 @@ body.zen-mode .floating-score-tab {
 }
 .palette-chip.active { border-color: var(--accent-primary); background: var(--accent-glow); color: var(--accent-primary); }
 .chip-dot { width: 8px; height: 8px; border-radius: 50%; }
+.dot-gold { background: #ffde59; box-shadow: 0 0 8px #ffde59; }
 .dot-cyan { background: #00f2fe; box-shadow: 0 0 8px #00f2fe; }
 .dot-magenta { background: #ff007f; box-shadow: 0 0 8px #ff007f; }
 .dot-emerald { background: #00ff87; box-shadow: 0 0 8px #00ff87; }

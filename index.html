@@ -4,16 +4,15 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   
-  <title>Vibe Music Player - Aesthetic Indian Lo-Fi & Retro Player</title>
-  <meta name="title" content="Vibe Music Player - Aesthetic Indian Lo-Fi & Retro Player">
-  <meta name="description" content="Aesthetic Indian Tapri, Retro Lo-Fi & Cyber Neon music player with dynamic moods, rain sound synthesizer, zen mode, custom wallpapers, arcade game and cloud synced tracks.">
+  <title>Vibe Music Player - Aesthetic Lo-Fi, Retro & Calm Player</title>
+  <meta name="title" content="Vibe Music Player - Aesthetic Lo-Fi, Retro & Calm Player">
+  <meta name="description" content="Aesthetic Indian Tapri, Retro Lo-Fi, Cyber Neon and Soothing Calm music player with dynamic moods, rain sound synthesizer, zen mode, custom wallpapers, arcade game and cloud synced tracks.">
   <meta name="author" content="Aditya Kushal">
 
   <meta property="og:type" content="website">
-  <meta property="og:title" content="Vibe Music Player - Retro Lo-Fi & Cyber Neon">
+  <meta property="og:title" content="Vibe Music Player - Retro, Cyber & Calm">
   <meta property="og:image" content="app-icon.png">
 
-  <!-- PWA Setup -->
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#000000">
   <meta name="mobile-web-app-capable" content="yes">
@@ -31,14 +30,12 @@
 </head>
 <body class="theme-retro accent-gold mood-sunset">
 
-  <!-- Background & Weather Layer -->
   <div class="app-background" id="app-background"></div>
   <div class="scrim-overlay"></div>
   <canvas id="weather-canvas"></canvas>
 
-  <!-- Top Action Container (Aesthetic Mode, Mood, Zen, Game & Sync) -->
   <div class="scene-switcher-container">
-    <button class="scene-btn mode-btn" id="mode-toggle-btn" title="Switch Aesthetic Engine (Retro / Cyber)">
+    <button class="scene-btn mode-btn" id="mode-toggle-btn" title="Cycle Aesthetic Engine (Retro / Cyber / Calm)">
       <i class="ri-radio-2-line" id="mode-icon"></i>
       <span id="mode-label">Retro</span>
     </button>
@@ -59,13 +56,11 @@
     </button>
   </div>
 
-  <!-- Permanent Floating Leaderboard Side-Tab -->
   <button class="floating-score-tab" id="floating-score-tab" title="View Global & Personal Scores">
     <i class="ri-trophy-line"></i>
     <span>Scores</span>
   </button>
 
-  <!-- Sliding Leaderboard Sidebar Panel -->
   <div class="leaderboard-backdrop" id="leaderboard-backdrop"></div>
   <aside class="leaderboard-sidebar" id="leaderboard-sidebar">
     <div class="leaderboard-header">
@@ -99,7 +94,6 @@
     </div>
   </aside>
 
-  <!-- 3 Transparent Glassmorphic Bouncing Balls -->
   <button class="bounce-ball" id="open-drawer-btn" title="Open Songs & Playlists">
     <i class="ri-play-list-2-fill"></i>
     <span class="float-badge" id="track-count">0</span>
@@ -114,17 +108,14 @@
   </button>
   <input type="file" id="audio-file-input" accept="audio/*" multiple hidden>
 
-  <!-- Transparent Draggable Volume Pill (Paddle in Game Mode) -->
   <div class="draggable-volume-box" id="draggable-volume" title="Drag anywhere!">
     <i class="ri-volume-up-line" id="volume-icon" title="Mute/Unmute"></i>
     <input type="range" id="volume-slider" min="0" max="1" step="0.01" value="1">
   </div>
 
-  <!-- Main Player Container -->
   <main class="player-container" id="player-container">
     <div class="player-content">
       
-      <!-- Track Meta Section (Title, Heart & Share Button) -->
       <section class="track-meta">
         <div class="title-like-row">
           <h1 class="track-title" id="track-title">Loading Track...</h1>
@@ -138,7 +129,6 @@
         <p class="track-artist" id="track-artist">My Favourite Artist</p>
       </section>
 
-      <!-- Progress / Seek Bar Section -->
       <section class="progress-section">
         <div class="seek-container" id="seek-container">
           <div class="seek-bar" id="seek-bar">
@@ -152,7 +142,6 @@
         </div>
       </section>
 
-      <!-- Music Controls Section -->
       <section class="controls-section" id="controls-section">
         <button class="ctrl-btn icon-only" id="shuffle-btn" title="Shuffle">
           <i class="ri-shuffle-line"></i>
@@ -174,10 +163,8 @@
     </div>
   </main>
 
-  <!-- Shared Backdrop for Drawers -->
   <div class="drawer-backdrop" id="drawer-backdrop"></div>
 
-  <!-- 1. SONGS & PLAYLIST DRAWER (BALL 1) -->
   <aside class="playlist-drawer" id="playlist-drawer">
     <div class="drawer-handle"></div>
     
@@ -191,19 +178,16 @@
       </button>
     </div>
 
-    <!-- Search Bar -->
     <div class="search-box-container">
       <i class="ri-search-2-line search-icon"></i>
       <input type="text" id="playlist-search-input" placeholder="Search track or artist...">
     </div>
 
-    <!-- Playlist Filter Tabs -->
     <div class="playlist-tabs">
       <button class="tab-btn active" id="tab-all-btn">All Tracks</button>
       <button class="tab-btn" id="tab-liked-btn"><i class="ri-heart-fill"></i> Liked (<span id="liked-count">0</span>)</button>
     </div>
 
-    <!-- Dual Upload Cards -->
     <div class="dual-upload-container">
       <label for="main-audio-input" class="upload-action-card global" id="btn-upload-main">
         <i class="ri-cloud-upload-fill"></i>
@@ -224,45 +208,43 @@
       <input type="file" id="drawer-audio-file-input" accept="audio/*" multiple hidden>
     </div>
 
-    <!-- Scrollable Songs List -->
     <div class="playlist-scroll-list" id="playlist-scroll-list"></div>
   </aside>
 
-  <!-- 2. THEME & ATMOSPHERE DRAWER (BALL 2) -->
   <aside class="playlist-drawer theme-drawer" id="theme-drawer">
     <div class="drawer-handle"></div>
     
     <div class="drawer-header">
       <div>
         <h3>Aesthetic Studio</h3>
-        <p>Themes, Neon Accents & Wallpapers</p>
+        <p>Retro, Cyber & Calm Modes</p>
       </div>
       <button class="close-drawer-btn" id="close-theme-btn">
         <i class="ri-close-line"></i>
       </button>
     </div>
 
-    <!-- Aesthetic Mode Selection -->
     <div class="custom-picker-section">
       <span class="picker-title"><i class="ri-magic-line"></i> Aesthetic Engine:</span>
-      <div class="picker-grid">
+      <div class="picker-grid" style="grid-template-columns: repeat(3, 1fr) !important;">
         <button class="grid-btn engine-btn active" id="btn-engine-retro"><i class="ri-radio-2-line"></i> Retro</button>
         <button class="grid-btn engine-btn" id="btn-engine-cyber"><i class="ri-flashlight-line"></i> Cyber</button>
+        <button class="grid-btn engine-btn" id="btn-engine-calm"><i class="ri-leaf-line"></i> Calm</button>
       </div>
     </div>
 
-    <!-- Accent Hue Palette (Permanently Available in Both Modes) -->
     <div class="custom-picker-section" id="cyber-palette-section">
       <span class="picker-title"><i class="ri-contrast-drop-2-line"></i> Accent Hue Glow:</span>
       <div class="palette-chips-row">
-        <button class="palette-chip active" data-accent="gold"><span class="chip-dot dot-gold"></span> Amber Gold</button>
-        <button class="palette-chip" data-accent="cyan"><span class="chip-dot dot-cyan"></span> Electric Cyan</button>
-        <button class="palette-chip" data-accent="magenta"><span class="chip-dot dot-magenta"></span> Hot Magenta</button>
-        <button class="palette-chip" data-accent="emerald"><span class="chip-dot dot-emerald"></span> Matrix Emerald</button>
+        <button class="palette-chip active" data-accent="gold"><span class="chip-dot dot-gold"></span> Amber</button>
+        <button class="palette-chip" data-accent="cyan"><span class="chip-dot dot-cyan"></span> Cyan</button>
+        <button class="palette-chip" data-accent="magenta"><span class="chip-dot dot-magenta"></span> Magenta</button>
+        <button class="palette-chip" data-accent="emerald"><span class="chip-dot dot-emerald"></span> Emerald</button>
+        <button class="palette-chip" data-accent="lavender"><span class="chip-dot dot-lavender"></span> Lavender</button>
+        <button class="palette-chip" data-accent="sage"><span class="chip-dot dot-sage"></span> Sage</button>
       </div>
     </div>
 
-    <!-- All 8 Wallpapers (4 Retro + 4 Cyber in a clean 4-column grid) -->
     <div class="custom-picker-section">
       <span class="picker-title"><i class="ri-image-2-line"></i> Wallpaper Background:</span>
       <div class="picker-grid wallpaper-grid">
@@ -270,10 +252,16 @@
         <button class="grid-btn bg-btn" data-bg="1">Retro 2</button>
         <button class="grid-btn bg-btn" data-bg="2">Retro 3</button>
         <button class="grid-btn bg-btn" data-bg="3">Retro 4</button>
+        
         <button class="grid-btn bg-btn" data-bg="4">Cyber 1</button>
         <button class="grid-btn bg-btn" data-bg="5">Cyber 2</button>
         <button class="grid-btn bg-btn" data-bg="6">Cyber 3</button>
         <button class="grid-btn bg-btn" data-bg="7">Cyber 4</button>
+        
+        <button class="grid-btn bg-btn" data-bg="8">Calm 1</button>
+        <button class="grid-btn bg-btn" data-bg="9">Calm 2</button>
+        <button class="grid-btn bg-btn" data-bg="10">Calm 3</button>
+        <button class="grid-btn bg-btn" data-bg="11">Calm 4</button>
         
         <label for="custom-bg-input" class="grid-btn bg-btn custom-bg-cell" id="custom-bg-label">
           <i class="ri-image-add-line"></i> <span id="custom-bg-text">+ Custom Wallpaper</span>
@@ -282,7 +270,6 @@
       </div>
     </div>
 
-    <!-- Mood Lighting Effects -->
     <div class="custom-picker-section">
       <span class="picker-title"><i class="ri-sparkling-line"></i> Atmospheric Lighting:</span>
       <div class="picker-grid">
@@ -293,7 +280,6 @@
       </div>
     </div>
 
-    <!-- Lo-Fi Rain Synthesizer -->
     <div class="ambient-mixer-card">
       <div class="ambient-row">
         <div class="ambient-label">
@@ -304,7 +290,6 @@
     </div>
   </aside>
 
-  <!-- Upload Loading Overlay -->
   <div class="upload-progress-modal" id="upload-modal">
     <div class="modal-content">
       <div class="spinner"></div>

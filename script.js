@@ -72,7 +72,7 @@ const baseTracks = [
 
 const FALLBACK_ARTIST = "My Favourite Artist";
 
-// All 8 Unified Wallpapers (Format: cyber-bg1-desktop.png / cyber-bg1-mobile.png)
+// All 12 Wallpapers (Retro 1-4, Cyber 1-4, Calm 1-4)
 const allWallpapers = [
   { name: "Retro 1", desktop: "bg1-desktop.png", mobile: "bg1-mobile.png" },
   { name: "Retro 2", desktop: "bg2-desktop.png", mobile: "bg2-mobile.png" },
@@ -81,7 +81,11 @@ const allWallpapers = [
   { name: "Cyber 1", desktop: "cyber-bg1-desktop.png", mobile: "cyber-bg1-mobile.png" },
   { name: "Cyber 2", desktop: "cyber-bg2-desktop.png", mobile: "cyber-bg2-mobile.png" },
   { name: "Cyber 3", desktop: "cyber-bg3-desktop.png", mobile: "cyber-bg3-mobile.png" },
-  { name: "Cyber 4", desktop: "cyber-bg4-desktop.png", mobile: "cyber-bg4-mobile.png" }
+  { name: "Cyber 4", desktop: "cyber-bg4-desktop.png", mobile: "cyber-bg4-mobile.png" },
+  { name: "Calm 1", desktop: "calm-bg1-desktop.png", mobile: "calm-bg1-mobile.png" },
+  { name: "Calm 2", desktop: "calm-bg2-desktop.png", mobile: "calm-bg2-mobile.png" },
+  { name: "Calm 3", desktop: "calm-bg3-desktop.png", mobile: "calm-bg3-mobile.png" },
+  { name: "Calm 4", desktop: "calm-bg4-desktop.png", mobile: "calm-bg4-mobile.png" }
 ];
 
 const moods = [
@@ -176,8 +180,8 @@ let activeAudio, standbyAudio;
 let nextPreloadedIndex = -1;
 
 let currentTab = "all"; 
-let currentAestheticMode = localStorage.getItem("vibe_aesthetic_mode") || "retro"; // 'retro' or 'cyber'
-let currentAccentHue = localStorage.getItem("vibe_accent_hue") || "gold"; // 'gold', 'cyan', 'magenta', 'emerald'
+let currentAestheticMode = localStorage.getItem("vibe_aesthetic_mode") || "retro"; // 'retro', 'cyber', 'calm'
+let currentAccentHue = localStorage.getItem("vibe_accent_hue") || "gold"; // 'gold', 'cyan', 'magenta', 'emerald', 'lavender', 'sage'
 
 let currentBgIndex = localStorage.getItem("vibe_bg_idx") || "0";
 let customBgData = localStorage.getItem("vibe_custom_bg") || null;
@@ -205,7 +209,7 @@ let playerContainer, controlsSection;
 
 // Theme & Mode Switcher DOM
 let modeToggleBtn, modeIcon, modeLabel;
-let btnEngineRetro, btnEngineCyber;
+let btnEngineRetro, btnEngineCyber, btnEngineCalm;
 
 // Leaderboard Elements
 let floatingScoreTab, leaderboardBackdrop, leaderboardSidebar;
@@ -276,6 +280,7 @@ async function initPlayer() {
   modeLabel = document.getElementById("mode-label");
   btnEngineRetro = document.getElementById("btn-engine-retro");
   btnEngineCyber = document.getElementById("btn-engine-cyber");
+  btnEngineCalm = document.getElementById("btn-engine-calm");
 
   moodToggleBtn = document.getElementById("mood-toggle-btn");
   moodIcon = document.getElementById("mood-icon");
@@ -371,7 +376,7 @@ async function loadSavedLocalSongs() {
 }
 
 // ========================================================
-// AESTHETIC ENGINE & ACCENT SWITCHER
+// 3-WAY AESTHETIC ENGINE (RETRO, CYBER, CALM)
 // ========================================================
 function applyAestheticEngine(mode, accent = "gold") {
   currentAestheticMode = mode;
@@ -379,58 +384,56 @@ function applyAestheticEngine(mode, accent = "gold") {
   localStorage.setItem("vibe_aesthetic_mode", mode);
   localStorage.setItem("vibe_accent_hue", accent);
 
-  document.body.classList.remove("theme-retro", "theme-cyber", "accent-gold", "accent-cyan", "accent-magenta", "accent-emerald");
+  document.body.classList.remove(
+    "theme-retro", "theme-cyber", "theme-calm",
+    "accent-gold", "accent-cyan", "accent-magenta", "accent-emerald", "accent-lavender", "accent-sage"
+  );
   document.body.classList.add(`theme-${mode}`, `accent-${accent}`);
 
-  if (modeLabel) modeLabel.textContent = mode === "cyber" ? "Cyber" : "Retro";
-  if (modeIcon) modeIcon.className = mode === "cyber" ? "ri-flashlight-line" : "ri-radio-2-line";
+  if (modeLabel) {
+    if (mode === "cyber") modeLabel.textContent = "Cyber";
+    else if (mode === "calm") modeLabel.textContent = "Calm";
+    else modeLabel.textContent = "Retro";
+  }
+
+  if (modeIcon) {
+    if (mode === "cyber") modeIcon.className = "ri-flashlight-line";
+    else if (mode === "calm") modeIcon.className = "ri-leaf-line";
+    else modeIcon.className = "ri-radio-2-line";
+  }
 
   if (btnEngineRetro) btnEngineRetro.classList.toggle("active", mode === "retro");
   if (btnEngineCyber) btnEngineCyber.classList.toggle("active", mode === "cyber");
+  if (btnEngineCalm) btnEngineCalm.classList.toggle("active", mode === "calm");
 
-  // Highlight selected palette chip in drawer
+  // Highlight selected palette chip
   document.querySelectorAll(".palette-chip").forEach(chip => {
     chip.classList.toggle("active", chip.getAttribute("data-accent") === accent);
   });
 }
 
-// Main Interactive Mode Switcher (Visible transformation on click)
 function setAestheticEngine(targetMode) {
   currentAestheticMode = targetMode;
   localStorage.setItem("vibe_aesthetic_mode", targetMode);
 
   if (targetMode === "cyber") {
-    // When switching to Cyber, activate Cyber neon look & cyber wallpaper
-    if (currentAccentHue === "gold") currentAccentHue = "cyan";
-
-    let bgIdx = parseInt(currentBgIndex);
-    if (!isNaN(bgIdx) && bgIdx < 4) {
-      applyBackground(bgIdx + 4); // Switch to corresponding cyber wallpaper (4-7)
-    } else if (currentBgIndex === "custom" && customBgData) {
-      applyCustomBackground(customBgData);
-    } else {
-      applyBackground(4);
-    }
+    currentAccentHue = "cyan";
+    applyBackground(4); // Cyber 1
+  } else if (targetMode === "calm") {
+    currentAccentHue = "lavender";
+    applyBackground(8); // Calm 1
   } else {
-    // When switching to Retro, activate Retro warm lo-fi look & retro wallpaper
     currentAccentHue = "gold";
-
-    let bgIdx = parseInt(currentBgIndex);
-    if (!isNaN(bgIdx) && bgIdx >= 4) {
-      applyBackground(bgIdx - 4); // Switch to corresponding retro wallpaper (0-3)
-    } else if (currentBgIndex === "custom" && customBgData) {
-      applyCustomBackground(customBgData);
-    } else {
-      applyBackground(0);
-    }
+    applyBackground(0); // Retro 1
   }
 
   applyAestheticEngine(targetMode, currentAccentHue);
 }
 
 function toggleAestheticMode() {
-  const nextMode = currentAestheticMode === "retro" ? "cyber" : "retro";
-  setAestheticEngine(nextMode);
+  if (currentAestheticMode === "retro") setAestheticEngine("cyber");
+  else if (currentAestheticMode === "cyber") setAestheticEngine("calm");
+  else setAestheticEngine("retro");
 }
 
 // ========================================================
@@ -1315,7 +1318,7 @@ function closeAllDrawers() {
   if (drawerBackdrop) drawerBackdrop.classList.remove("active");
 }
 
-// Draggable Volume Bar (Paddle in Game Mode)
+// Draggable Volume Bar
 function setupDraggableVolume() {
   if (!draggableVolume) return;
 
@@ -1977,12 +1980,13 @@ function setupListeners() {
   if (moodToggleBtn) moodToggleBtn.addEventListener("click", cycleMood);
   if (zenToggleBtn) zenToggleBtn.addEventListener("click", toggleZenMode);
 
-  // Engine Mode Switchers
+  // 3-Way Mode Switchers
   if (modeToggleBtn) modeToggleBtn.addEventListener("click", toggleAestheticMode);
   if (btnEngineRetro) btnEngineRetro.addEventListener("click", () => setAestheticEngine("retro"));
   if (btnEngineCyber) btnEngineCyber.addEventListener("click", () => setAestheticEngine("cyber"));
+  if (btnEngineCalm) btnEngineCalm.addEventListener("click", () => setAestheticEngine("calm"));
 
-  // Accent Palette Chips
+  // Universal Accent Palette Chips
   document.querySelectorAll(".palette-chip").forEach(chip => {
     chip.addEventListener("click", () => {
       const accent = chip.getAttribute("data-accent");
@@ -2018,7 +2022,7 @@ function setupListeners() {
     });
   }
 
-  // All 8 Wallpaper Buttons
+  // All 12 Wallpaper Buttons
   document.querySelectorAll(".bg-btn:not(#custom-bg-label)").forEach(btn => {
     btn.addEventListener("click", () => applyBackground(parseInt(btn.getAttribute("data-bg"))));
   });

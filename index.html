@@ -116,43 +116,7 @@
   <!-- Phone Assist Ball with Snapping, 50% Edge-Docking and Quick Menu -->
   <div class="assist-ball-wrapper" id="assist-ball-wrapper" style="display: none;">
     <div class="assist-ball" id="assist-ball" title="Tap to expand / Drag to move">
-      <div class="assist-skin-slot" id="assist-skin-slot">
-        <!-- Default: Realistic Orange Fruit Slice SVG -->
-        <svg viewBox="0 0 100 100" class="assist-svg-icon" id="orange-slice-svg">
-          <defs>
-            <linearGradient id="orgPeel" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stop-color="#ff9f43"/>
-              <stop offset="100%" stop-color="#ee5253"/>
-            </linearGradient>
-            <linearGradient id="orgLeaf" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stop-color="#2ed573"/>
-              <stop offset="100%" stop-color="#10ac84"/>
-            </linearGradient>
-          </defs>
-          <!-- Leaves on Top -->
-          <path d="M42 22 C32 8, 14 16, 20 28 C24 34, 38 30, 42 22 Z" fill="url(#orgLeaf)"/>
-          <path d="M22 25 Q32 24 38 23" stroke="#7bed9f" stroke-width="2.5" fill="none"/>
-          <path d="M46 25 C48 10, 64 12, 60 25 C56 31, 48 29, 46 25 Z" fill="#2ed573"/>
-          <!-- Outer Peel -->
-          <circle cx="52" cy="56" r="38" fill="url(#orgPeel)"/>
-          <!-- White Pith -->
-          <circle cx="52" cy="56" r="33" fill="#fff8e7"/>
-          <!-- Pulp Base -->
-          <circle cx="52" cy="56" r="30" fill="#ff793f"/>
-          <!-- Pulp Segments -->
-          <g fill="#ff9f43" stroke="#fff8e7" stroke-width="2.5" stroke-linejoin="round">
-            <path d="M52 56 L40 40 A26 26 0 0 1 52 30 Z"/>
-            <path d="M52 56 L52 30 A26 26 0 0 1 64 40 Z"/>
-            <path d="M52 56 L64 40 A26 26 0 0 1 74 52 Z"/>
-            <path d="M52 56 L74 52 A26 26 0 0 1 68 66 Z"/>
-            <path d="M52 56 L68 66 A26 26 0 0 1 54 78 Z"/>
-            <path d="M52 56 L54 78 A26 26 0 0 1 42 74 Z"/>
-            <path d="M52 56 L42 74 A26 26 0 0 1 34 60 Z"/>
-            <path d="M52 56 L34 60 A26 26 0 0 1 40 40 Z"/>
-          </g>
-          <circle cx="52" cy="56" r="4.5" fill="#fff8e7"/>
-        </svg>
-      </div>
+      <div class="assist-skin-slot" id="assist-skin-slot"></div>
     </div>
     
     <!-- Assist Ball Quick Menu Popup -->
@@ -323,14 +287,15 @@
       </div>
     </div>
 
-    <!-- Assist Ball Skin Selection -->
+    <!-- New Music-Centric Assist Ball Skins -->
     <div class="custom-picker-section" id="assist-skin-section">
       <span class="picker-title"><i class="ri-t-shirt-line"></i> Assist Ball Skin:</span>
       <div class="palette-chips-row">
-        <button class="palette-chip active" data-skin="orange">🍊 Fresh Orange</button>
-        <button class="palette-chip" data-skin="glass">🔮 Glass Orb</button>
-        <button class="palette-chip" data-skin="cyber">💠 Cyber Core</button>
-        <button class="palette-chip" data-skin="star">⭐ Neon Star</button>
+        <button class="palette-chip active" data-skin="vinyl">💿 Mini Vinyl</button>
+        <button class="palette-chip" data-skin="cat">🐱 Lo-Fi Cat</button>
+        <button class="palette-chip" data-skin="chrome">💧 Liquid Chrome</button>
+        <button class="palette-chip" data-skin="chai">☕ Cutting Chai</button>
+        <button class="palette-chip" data-skin="waveform">📊 Live Wave</button>
       </div>
     </div>
 

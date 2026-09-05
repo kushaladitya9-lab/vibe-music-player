@@ -183,7 +183,7 @@ let currentTab = "all";
 let currentAestheticMode = localStorage.getItem("vibe_aesthetic_mode") || "retro"; 
 let currentAccentHue = localStorage.getItem("vibe_accent_hue") || "gold"; 
 let controlsLayout = localStorage.getItem("vibe_controls_layout") || "bouncing"; 
-let assistSkin = localStorage.getItem("vibe_assist_skin") || "orange"; 
+let assistSkin = localStorage.getItem("vibe_assist_skin") || "vinyl"; 
 
 let currentBgIndex = localStorage.getItem("vibe_bg_idx") || "0";
 let customBgData = localStorage.getItem("vibe_custom_bg") || null;
@@ -224,7 +224,6 @@ let btnDrawer, btnTheme, btnUpload;
 let balls = [];
 let assistBallWrapper, assistBall, assistSkinSlot, assistRadialMenu;
 let assistIdleTimer = null;
-let isAssistDocked = false;
 
 // Arcade State
 let isArcadeMode = false;
@@ -452,7 +451,7 @@ function toggleAestheticMode() {
 }
 
 // ========================================================
-// UI CONTROLS LAYOUT & ASSIST BALL SKINS (FIXED FREEZE)
+// 5 NEW AESTHETIC MUSIC-CENTRIC ASSIST BALL SKINS
 // ========================================================
 function applyControlsLayout(layout) {
   controlsLayout = layout;
@@ -471,13 +470,11 @@ function applyControlsLayout(layout) {
       resetAssistIdleTimer();
     }
   } else {
-    // Switching back to Bouncing Balls: SHOW & RESTART PHYSICS!
     [btnDrawer, btnTheme, btnUpload].forEach(b => { if (b) b.style.display = "grid"; });
     balls.forEach(b => { b.isPaused = false; });
     if (assistBallWrapper) assistBallWrapper.style.display = "none";
     if (assistRadialMenu) assistRadialMenu.classList.remove("active");
 
-    // RESTART PHYSICS LOOP SO BALLS NEVER FREEZE!
     requestAnimationFrame(updateNormalPhysics);
   }
 }
@@ -489,44 +486,87 @@ function applyAssistSkin(skin) {
   if (!assistBall || !assistSkinSlot) return;
   assistBall.className = `assist-ball skin-${skin}`;
 
-  if (skin === "orange") {
+  if (skin === "vinyl") {
+    // 1. Mini Vinyl Record (Rotating concentric grooves)
+    assistSkinSlot.innerHTML = `
+      <svg viewBox="0 0 100 100" class="vinyl-disc-svg">
+        <circle cx="50" cy="50" r="48" fill="#121418" stroke="#252932" stroke-width="2"/>
+        <circle cx="50" cy="50" r="42" fill="none" stroke="#2a2e39" stroke-width="1.2" opacity="0.6"/>
+        <circle cx="50" cy="50" r="36" fill="none" stroke="#2a2e39" stroke-width="1.2" opacity="0.6"/>
+        <circle cx="50" cy="50" r="30" fill="none" stroke="#2a2e39" stroke-width="1.2" opacity="0.6"/>
+        <circle cx="50" cy="50" r="20" fill="var(--accent-primary)"/>
+        <circle cx="50" cy="50" r="6" fill="#000000"/>
+        <path d="M50 30 L50 34" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+    `;
+  } else if (skin === "cat") {
+    // 2. Lo-Fi Cozy Sleeping Cat
     assistSkinSlot.innerHTML = `
       <svg viewBox="0 0 100 100" class="assist-svg-icon">
         <defs>
-          <linearGradient id="orgPeel2" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stop-color="#ff9f43"/>
-            <stop offset="100%" stop-color="#ee5253"/>
-          </linearGradient>
-          <linearGradient id="orgLeaf2" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stop-color="#2ed573"/>
-            <stop offset="100%" stop-color="#10ac84"/>
+          <linearGradient id="catGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#ffffff"/>
+            <stop offset="100%" stop-color="#cbd5e1"/>
           </linearGradient>
         </defs>
-        <path d="M42 22 C32 8, 14 16, 20 28 C24 34, 38 30, 42 22 Z" fill="url(#orgLeaf2)"/>
-        <path d="M22 25 Q32 24 38 23" stroke="#7bed9f" stroke-width="2.5" fill="none"/>
-        <path d="M46 25 C48 10, 64 12, 60 25 C56 31, 48 29, 46 25 Z" fill="#2ed573"/>
-        <circle cx="52" cy="56" r="38" fill="url(#orgPeel2)"/>
-        <circle cx="52" cy="56" r="33" fill="#fff8e7"/>
-        <circle cx="52" cy="56" r="30" fill="#ff793f"/>
-        <g fill="#ff9f43" stroke="#fff8e7" stroke-width="2.5" stroke-linejoin="round">
-          <path d="M52 56 L40 40 A26 26 0 0 1 52 30 Z"/>
-          <path d="M52 56 L52 30 A26 26 0 0 1 64 40 Z"/>
-          <path d="M52 56 L64 40 A26 26 0 0 1 74 52 Z"/>
-          <path d="M52 56 L74 52 A26 26 0 0 1 68 66 Z"/>
-          <path d="M52 56 L68 66 A26 26 0 0 1 54 78 Z"/>
-          <path d="M52 56 L54 78 A26 26 0 0 1 42 74 Z"/>
-          <path d="M52 56 L42 74 A26 26 0 0 1 34 60 Z"/>
-          <path d="M52 56 L34 60 A26 26 0 0 1 40 40 Z"/>
-        </g>
-        <circle cx="52" cy="56" r="4.5" fill="#fff8e7"/>
+        <!-- Cat Ears -->
+        <polygon points="26,40 18,18 42,28" fill="#e2e8f0"/>
+        <polygon points="28,36 22,22 38,28" fill="#f472b6"/>
+        <polygon points="74,40 82,18 58,28" fill="#e2e8f0"/>
+        <polygon points="72,36 78,22 62,28" fill="#f472b6"/>
+        <!-- Cat Body & Head -->
+        <ellipse cx="50" cy="56" rx="38" ry="34" fill="url(#catGrad)"/>
+        <!-- Closed Peaceful Eyes -->
+        <path d="M32 54 Q40 60 44 54" stroke="#475569" stroke-width="3" stroke-linecap="round" fill="none"/>
+        <path d="M56 54 Q60 60 68 54" stroke="#475569" stroke-width="3" stroke-linecap="round" fill="none"/>
+        <!-- Cute Nose & Mouth -->
+        <polygon points="48,63 52,63 50,66" fill="#f472b6"/>
+        <path d="M47 67 Q50 70 53 67" stroke="#64748b" stroke-width="2" fill="none"/>
+        <!-- Soft Blush -->
+        <circle cx="28" cy="62" r="5" fill="#fbcfe8" opacity="0.7"/>
+        <circle cx="72" cy="62" r="5" fill="#fbcfe8" opacity="0.7"/>
       </svg>
     `;
-  } else if (skin === "glass") {
-    assistSkinSlot.innerHTML = `<i class="ri-focus-2-line" style="font-size: 1.6rem; color: #fff;"></i>`;
-  } else if (skin === "cyber") {
-    assistSkinSlot.innerHTML = `<i class="ri-hexagon-line" style="font-size: 1.6rem; color: #fff;"></i>`;
-  } else if (skin === "star") {
-    assistSkinSlot.innerHTML = `<i class="ri-star-smile-fill" style="font-size: 1.6rem; color: #000;"></i>`;
+  } else if (skin === "chrome") {
+    // 3. Liquid Chrome Droplet
+    assistSkinSlot.innerHTML = `<i class="ri-drop-fill chrome-fluid-icon"></i>`;
+  } else if (skin === "chai") {
+    // 4. Cutting Chai Glass with Gentle Rising Steam
+    assistSkinSlot.innerHTML = `
+      <svg viewBox="0 0 100 100" class="assist-svg-icon">
+        <defs>
+          <linearGradient id="teaGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#ff9f43"/>
+            <stop offset="100%" stop-color="#b33939"/>
+          </linearGradient>
+        </defs>
+        <!-- Rising Steam -->
+        <path class="chai-steam-path" d="M42 24 Q38 18 44 12" stroke="rgba(255,255,255,0.7)" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+        <path class="chai-steam-path" d="M56 22 Q52 16 58 10" stroke="rgba(255,255,255,0.7)" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+        <!-- Outer Glass Cup -->
+        <polygon points="30,34 70,34 62,86 38,86" fill="rgba(255,255,255,0.18)" stroke="rgba(255,255,255,0.85)" stroke-width="2.5" stroke-linejoin="round"/>
+        <!-- Fluted Glass Vertical Ridges -->
+        <line x1="44" y1="36" x2="44" y2="84" stroke="rgba(255,255,255,0.35)" stroke-width="1.5"/>
+        <line x1="56" y1="36" x2="56" y2="84" stroke="rgba(255,255,255,0.35)" stroke-width="1.5"/>
+        <!-- Hot Amber Chai -->
+        <polygon points="33,48 67,48 61,84 39,84" fill="url(#teaGrad)"/>
+      </svg>
+    `;
+  } else if (skin === "waveform") {
+    // 5. Live Equalizer Waveform Bars
+    assistSkinSlot.innerHTML = `
+      <div class="assist-waveform-bars">
+        <div class="assist-wave-bar"></div>
+        <div class="assist-wave-bar"></div>
+        <div class="assist-wave-bar"></div>
+        <div class="assist-wave-bar"></div>
+      </div>
+    `;
+  }
+
+  // Update playback animation state on current assist ball
+  if (activeAudio) {
+    assistBall.classList.toggle("is-playing", !activeAudio.paused);
   }
 
   document.querySelectorAll("#assist-skin-section .palette-chip").forEach(chip => {
@@ -535,7 +575,7 @@ function applyAssistSkin(skin) {
 }
 
 // ========================================================
-// ASSIST BALL: EDGE SNAPPING, 50% HIDE & LAPTOP/MOBILE DRAG
+// ASSIST BALL: EDGE SNAPPING, 50% HIDE & DRAG
 // ========================================================
 function resetAssistIdleTimer() {
   if (!assistBallWrapper) return;
@@ -604,13 +644,11 @@ function setupAssistBallDraggable() {
     try { assistBall.releasePointerCapture(e.pointerId); } catch (err) {}
 
     if (!isDraggingMoved) {
-      // Tap / Click action: Toggle Menu
       const isActive = assistRadialMenu.classList.toggle("active");
       if (isActive) {
         clearTimeout(assistIdleTimer);
         assistBallWrapper.classList.remove("docked-left", "docked-right");
 
-        // Position menu cleanly beside the ball
         if (curX > window.innerWidth / 2) {
           assistRadialMenu.style.left = "auto";
           assistRadialMenu.style.right = "64px";
@@ -622,7 +660,6 @@ function setupAssistBallDraggable() {
         resetAssistIdleTimer();
       }
     } else {
-      // Dragging finished: Snap to nearest bezel
       const snapToRight = curX > window.innerWidth / 2;
       curX = snapToRight ? window.innerWidth - 60 : 8;
       assistBallWrapper.dataset.x = curX;
@@ -635,7 +672,6 @@ function setupAssistBallDraggable() {
   window.addEventListener("pointermove", onPointerMove);
   window.addEventListener("pointerup", onPointerUp);
 
-  // Hover on laptop pops out the docked ball
   assistBallWrapper.addEventListener("mouseenter", () => {
     clearTimeout(assistIdleTimer);
     assistBallWrapper.classList.remove("docked-left", "docked-right");
@@ -644,7 +680,6 @@ function setupAssistBallDraggable() {
     resetAssistIdleTimer();
   });
 
-  // Menu action buttons
   document.getElementById("assist-btn-songs")?.addEventListener("click", () => {
     assistRadialMenu.classList.remove("active");
     openPlaylistDrawer();
@@ -664,7 +699,7 @@ function setupAssistBallDraggable() {
 }
 
 // ========================================================
-// FREELY MOVABLE TROPHY BUTTON (ANYWHERE DRAGGABLE)
+// FREELY MOVABLE TROPHY BUTTON
 // ========================================================
 function setupDraggableTrophy() {
   if (!floatingScoreTab) return;
@@ -915,6 +950,7 @@ function playTrack() {
     playPromise.then(() => {
       updateMediaSessionMetadata(playlist[currentTrackIndex]);
       preloadStandbyTrack();
+      if (assistBall) assistBall.classList.add("is-playing");
     }).catch((err) => {
       console.warn("Playback awaiting interaction:", err);
     });
@@ -931,6 +967,7 @@ function attemptAutoplay() {
     playPromise.then(() => {
       updateMediaSessionMetadata(playlist[currentTrackIndex]);
       preloadStandbyTrack();
+      if (assistBall) assistBall.classList.add("is-playing");
     }).catch((err) => {
       console.warn("Autoplay awaiting user gesture:", err);
       const unlockAutoplay = () => {
@@ -947,6 +984,7 @@ function attemptAutoplay() {
 function pauseTrack() {
   if (!activeAudio) return;
   activeAudio.pause();
+  if (assistBall) assistBall.classList.remove("is-playing");
 }
 
 function togglePlay() {
@@ -1037,12 +1075,14 @@ function setupDualAudioListeners(audioNode) {
   audioNode.addEventListener("play", (e) => {
     if (e.target !== activeAudio) return;
     if (playIcon) playIcon.className = "ri-pause-fill";
+    if (assistBall) assistBall.classList.add("is-playing");
     if ("mediaSession" in navigator) navigator.mediaSession.playbackState = "playing";
   });
 
   audioNode.addEventListener("pause", (e) => {
     if (e.target !== activeAudio) return;
     if (playIcon) playIcon.className = "ri-play-fill";
+    if (assistBall) assistBall.classList.remove("is-playing");
     if ("mediaSession" in navigator) navigator.mediaSession.playbackState = "paused";
   });
 

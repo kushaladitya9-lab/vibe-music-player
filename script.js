@@ -182,6 +182,8 @@ let nextPreloadedIndex = -1;
 let currentTab = "all"; 
 let currentAestheticMode = localStorage.getItem("vibe_aesthetic_mode") || "retro"; // 'retro', 'cyber', 'calm'
 let currentAccentHue = localStorage.getItem("vibe_accent_hue") || "gold"; // 'gold', 'cyan', 'magenta', 'emerald', 'lavender', 'sage'
+let controlsLayout = localStorage.getItem("vibe_controls_layout") || "bouncing"; // 'bouncing' or 'assist'
+let assistSkin = localStorage.getItem("vibe_assist_skin") || "orange"; // 'orange', 'glass', 'cyber', 'star'
 
 let currentBgIndex = localStorage.getItem("vibe_bg_idx") || "0";
 let customBgData = localStorage.getItem("vibe_custom_bg") || null;
@@ -210,15 +212,18 @@ let playerContainer, controlsSection;
 // Theme & Mode Switcher DOM
 let modeToggleBtn, modeIcon, modeLabel;
 let btnEngineRetro, btnEngineCyber, btnEngineCalm;
+let btnLayoutBouncing, btnLayoutAssist, assistSkinSection;
 
 // Leaderboard Elements
 let floatingScoreTab, leaderboardBackdrop, leaderboardSidebar;
 let sidebarGlobalScore, sidebarGlobalNick, sidebarPersonalScore, sidebarPersonalNick;
 let sidebarNickInput, sidebarSaveNickBtn;
 
-// Bouncing Balls
+// Bouncing Balls & Assist Ball
 let btnDrawer, btnTheme, btnUpload;
 let balls = [];
+let assistBallWrapper, assistBall, assistBallContent, assistRadialMenu;
+let assistIdleTimer = null;
 
 // Arcade State
 let isArcadeMode = false;
@@ -282,6 +287,10 @@ async function initPlayer() {
   btnEngineCyber = document.getElementById("btn-engine-cyber");
   btnEngineCalm = document.getElementById("btn-engine-calm");
 
+  btnLayoutBouncing = document.getElementById("btn-layout-bouncing");
+  btnLayoutAssist = document.getElementById("btn-layout-assist");
+  assistSkinSection = document.getElementById("assist-skin-section");
+
   moodToggleBtn = document.getElementById("mood-toggle-btn");
   moodIcon = document.getElementById("mood-icon");
   moodLabel = document.getElementById("mood-label");
@@ -310,6 +319,11 @@ async function initPlayer() {
   btnTheme = document.getElementById("open-theme-btn");
   btnUpload = document.getElementById("quick-upload-btn");
 
+  assistBallWrapper = document.getElementById("assist-ball-wrapper");
+  assistBall = document.getElementById("assist-ball");
+  assistBallContent = document.getElementById("assist-ball-content");
+  assistRadialMenu = document.getElementById("assist-radial-menu");
+
   floatingScoreTab = document.getElementById("floating-score-tab");
   leaderboardBackdrop = document.getElementById("leaderboard-backdrop");
   leaderboardSidebar = document.getElementById("leaderboard-sidebar");
@@ -320,8 +334,10 @@ async function initPlayer() {
   sidebarNickInput = document.getElementById("sidebar-nick-input");
   sidebarSaveNickBtn = document.getElementById("sidebar-save-nick-btn");
 
-  // Apply saved aesthetic engine and accent
+  // Apply saved aesthetic engine, accent, layout and skin
   applyAestheticEngine(currentAestheticMode, currentAccentHue);
+  applyControlsLayout(controlsLayout);
+  applyAssistSkin(assistSkin);
 
   // Background Setup
   if (currentBgIndex === "custom" && customBgData) {
@@ -348,7 +364,9 @@ async function initPlayer() {
   setupDualAudioListeners(audioA);
   setupDualAudioListeners(audioB);
   setupDraggableVolume();
+  setupDraggableTrophy();
   setupBouncingBalls();
+  setupAssistBallDraggable();
   initWeatherCanvas();
   initArcadeUI();
   setupSwipeGestures();
@@ -406,7 +424,6 @@ function applyAestheticEngine(mode, accent = "gold") {
   if (btnEngineCyber) btnEngineCyber.classList.toggle("active", mode === "cyber");
   if (btnEngineCalm) btnEngineCalm.classList.toggle("active", mode === "calm");
 
-  // Highlight selected palette chip
   document.querySelectorAll(".palette-chip").forEach(chip => {
     chip.classList.toggle("active", chip.getAttribute("data-accent") === accent);
   });
@@ -434,6 +451,212 @@ function toggleAestheticMode() {
   if (currentAestheticMode === "retro") setAestheticEngine("cyber");
   else if (currentAestheticMode === "cyber") setAestheticEngine("calm");
   else setAestheticEngine("retro");
+}
+
+// ========================================================
+// UI CONTROLS LAYOUT & ASSIST BALL SKINS
+// ========================================================
+function applyControlsLayout(layout) {
+  controlsLayout = layout;
+  localStorage.setItem("vibe_controls_layout", layout);
+
+  if (btnLayoutBouncing) btnLayoutBouncing.classList.toggle("active", layout === "bouncing");
+  if (btnLayoutAssist) btnLayoutAssist.classList.toggle("active", layout === "assist");
+  if (assistSkinSection) assistSkinSection.style.display = layout === "assist" ? "flex" : "none";
+
+  if (isArcadeMode) return;
+
+  if (layout === "assist") {
+    [btnDrawer, btnTheme, btnUpload].forEach(b => { if (b) b.style.display = "none"; });
+    if (assistBallWrapper) assistBallWrapper.style.display = "block";
+    resetAssistIdleTimer();
+  } else {
+    [btnDrawer, btnTheme, btnUpload].forEach(b => { if (b) b.style.display = "grid"; });
+    if (assistBallWrapper) assistBallWrapper.style.display = "none";
+    if (assistRadialMenu) assistRadialMenu.classList.remove("active");
+  }
+}
+
+function applyAssistSkin(skin) {
+  assistSkin = skin;
+  localStorage.setItem("vibe_assist_skin", skin);
+
+  if (!assistBall) return;
+  assistBall.className = `assist-ball skin-${skin}`;
+
+  const skinIcons = {
+    orange: "🍊",
+    glass: "🔮",
+    cyber: "💠",
+    star: "⭐"
+  };
+
+  if (assistBallContent) assistBallContent.textContent = skinIcons[skin] || "🍊";
+
+  document.querySelectorAll("#assist-skin-section .palette-chip").forEach(chip => {
+    chip.classList.toggle("active", chip.getAttribute("data-skin") === skin);
+  });
+}
+
+function resetAssistIdleTimer() {
+  if (!assistBall) return;
+  assistBall.classList.remove("idle");
+  clearTimeout(assistIdleTimer);
+  assistIdleTimer = setTimeout(() => {
+    if (!assistRadialMenu.classList.contains("active")) {
+      assistBall.classList.add("idle");
+    }
+  }, 3000);
+}
+
+// Draggable Assist Ball
+function setupAssistBallDraggable() {
+  if (!assistBall || !assistBallWrapper) return;
+
+  let currentX = Math.max(16, window.innerWidth - 70);
+  let currentY = Math.max(70, window.innerHeight / 2);
+  let startX = 0, startY = 0;
+  let isDragging = false;
+  let hasMoved = false;
+
+  assistBallWrapper.style.transform = `translate3d(${currentX}px, ${currentY}px, 0)`;
+
+  function onPointerDown(e) {
+    if (e.target.closest(".assist-action-btn")) return;
+    resetAssistIdleTimer();
+    isDragging = true;
+    hasMoved = false;
+    startX = e.clientX - currentX;
+    startY = e.clientY - currentY;
+    assistBall.setPointerCapture(e.pointerId);
+  }
+
+  function onPointerMove(e) {
+    if (!isDragging) return;
+    const newX = e.clientX - startX;
+    const newY = e.clientY - startY;
+
+    if (Math.hypot(newX - currentX, newY - currentY) > 5) {
+      hasMoved = true;
+      assistRadialMenu.classList.remove("active");
+    }
+
+    const maxX = window.innerWidth - 60;
+    const maxY = window.innerHeight - 60;
+
+    currentX = Math.max(10, Math.min(newX, maxX));
+    currentY = Math.max(10, Math.min(newY, maxY));
+
+    assistBallWrapper.style.transform = `translate3d(${currentX}px, ${currentY}px, 0)`;
+  }
+
+  function onPointerUp(e) {
+    if (!isDragging) return;
+    isDragging = false;
+    try { assistBall.releasePointerCapture(e.pointerId); } catch(err) {}
+
+    if (!hasMoved) {
+      // It's a tap: toggle quick menu
+      const isActive = assistRadialMenu.classList.toggle("active");
+      if (isActive) {
+        assistBall.classList.remove("idle");
+        // Check if menu goes offscreen right
+        if (currentX > window.innerWidth - 220) {
+          assistRadialMenu.style.left = "auto";
+          assistRadialMenu.style.right = "0px";
+        } else {
+          assistRadialMenu.style.left = "-8px";
+          assistRadialMenu.style.right = "auto";
+        }
+      } else {
+        resetAssistIdleTimer();
+      }
+    } else {
+      resetAssistIdleTimer();
+    }
+  }
+
+  assistBall.addEventListener("pointerdown", onPointerDown);
+  window.addEventListener("pointermove", onPointerMove);
+  window.addEventListener("pointerup", onPointerUp);
+
+  // Assist Menu Action Clicks
+  document.getElementById("assist-btn-songs")?.addEventListener("click", () => {
+    assistRadialMenu.classList.remove("active");
+    openPlaylistDrawer();
+  });
+  document.getElementById("assist-btn-theme")?.addEventListener("click", () => {
+    assistRadialMenu.classList.remove("active");
+    openThemeDrawer();
+  });
+  document.getElementById("assist-btn-upload")?.addEventListener("click", () => {
+    assistRadialMenu.classList.remove("active");
+    if (audioFileInput) audioFileInput.click();
+  });
+  document.getElementById("assist-btn-switch-layout")?.addEventListener("click", () => {
+    assistRadialMenu.classList.remove("active");
+    applyControlsLayout("bouncing");
+  });
+}
+
+// ========================================================
+// FREELY MOVABLE TROPHY TAB (SCORES)
+// ========================================================
+function setupDraggableTrophy() {
+  if (!floatingScoreTab) return;
+
+  let trophyX = Math.max(10, window.innerWidth - 54);
+  let trophyY = Math.max(80, window.innerHeight * 0.14);
+  let startX = 0, startY = 0;
+  let isDragging = false;
+  let hasMoved = false;
+
+  floatingScoreTab.style.transform = `translate3d(${trophyX}px, ${trophyY}px, 0)`;
+
+  function onPointerDown(e) {
+    isDragging = true;
+    hasMoved = false;
+    startX = e.clientX - trophyX;
+    startY = e.clientY - trophyY;
+    floatingScoreTab.setPointerCapture(e.pointerId);
+  }
+
+  function onPointerMove(e) {
+    if (!isDragging) return;
+    const newX = e.clientX - startX;
+    const newY = e.clientY - startY;
+
+    if (Math.hypot(newX - trophyX, newY - trophyY) > 5) {
+      hasMoved = true;
+    }
+
+    const maxX = window.innerWidth - 50;
+    const maxY = window.innerHeight - 50;
+
+    trophyX = Math.max(6, Math.min(newX, maxX));
+    trophyY = Math.max(6, Math.min(newY, maxY));
+
+    floatingScoreTab.style.transform = `translate3d(${trophyX}px, ${trophyY}px, 0)`;
+  }
+
+  function onPointerUp(e) {
+    if (!isDragging) return;
+    isDragging = false;
+    try { floatingScoreTab.releasePointerCapture(e.pointerId); } catch(err) {}
+
+    if (!hasMoved) {
+      // Tap detected: open leaderboard panel
+      fetchGlobalHighScore().then(() => {
+        updateLeaderboardUI();
+        leaderboardSidebar.classList.add("active");
+        leaderboardBackdrop.classList.add("active");
+      });
+    }
+  }
+
+  floatingScoreTab.addEventListener("pointerdown", onPointerDown);
+  window.addEventListener("pointermove", onPointerMove);
+  window.addEventListener("pointerup", onPointerUp);
 }
 
 // ========================================================
@@ -1203,7 +1426,7 @@ function setupSwipeGestures() {
   let touchStartX = 0;
   window.addEventListener("touchstart", (e) => { touchStartX = e.touches[0].clientX; }, { passive: true });
   window.addEventListener("touchend", (e) => {
-    if (isArcadeMode || e.target.closest("#volume-slider") || e.target.closest("#seek-container") || e.target.closest(".playlist-drawer")) return;
+    if (isArcadeMode || e.target.closest("#volume-slider") || e.target.closest("#seek-container") || e.target.closest(".playlist-drawer") || e.target.closest(".assist-ball")) return;
     const touchEndX = e.changedTouches[0].clientX;
     const diffX = touchEndX - touchStartX;
     if (Math.abs(diffX) > 60) {
@@ -1316,9 +1539,10 @@ function closeAllDrawers() {
   if (leaderboardSidebar) leaderboardSidebar.classList.remove("active");
   if (leaderboardBackdrop) leaderboardBackdrop.classList.remove("active");
   if (drawerBackdrop) drawerBackdrop.classList.remove("active");
+  if (assistRadialMenu) assistRadialMenu.classList.remove("active");
 }
 
-// Draggable Volume Bar
+// Draggable Volume Bar (Paddle in Game Mode)
 function setupDraggableVolume() {
   if (!draggableVolume) return;
 
@@ -1435,7 +1659,7 @@ function setupBouncingBalls() {
 }
 
 function updateNormalPhysics() {
-  if (isArcadeMode) return;
+  if (isArcadeMode || controlsLayout === "assist") return;
 
   const winW = window.innerWidth;
   const winH = window.innerHeight;
@@ -1563,16 +1787,6 @@ function initArcadeUI() {
     endArcadeGame();
   });
   document.getElementById("arcade-save-nick-btn").addEventListener("click", saveArcadeNickname);
-
-  if (floatingScoreTab) {
-    floatingScoreTab.addEventListener("click", () => {
-      fetchGlobalHighScore().then(() => {
-        updateLeaderboardUI();
-        leaderboardSidebar.classList.add("active");
-        leaderboardBackdrop.classList.add("active");
-      });
-    });
-  }
 
   const closeLeaderboardBtn = document.getElementById("close-leaderboard-btn");
   if (closeLeaderboardBtn) {
@@ -1765,6 +1979,7 @@ async function requestStartArcade() {
   draggableVolume.classList.add("game-paddle-mode");
 
   [btnDrawer, btnTheme, btnUpload].forEach(b => { if (b) b.style.display = "none"; });
+  if (assistBallWrapper) assistBallWrapper.style.display = "none";
 
   await fetchGlobalHighScore();
   updateLiveHUD();
@@ -1897,7 +2112,7 @@ function handleGameOverTrigger() {
   if (playBtn) playBtn.style.opacity = "1";
   if (nextBtn) nextBtn.style.opacity = "1";
 
-  [btnDrawer, btnTheme, btnUpload].forEach(b => { if (b) b.style.display = "grid"; });
+  applyControlsLayout(controlsLayout);
 
   if (arcadeScore > personalHighScore) {
     personalHighScore = arcadeScore;
@@ -1913,7 +2128,7 @@ function handleGameOverTrigger() {
   document.getElementById("arcade-exit-btn").style.display = "inline-block";
   gameMsgOverlay.classList.add("active");
 
-  requestAnimationFrame(updateNormalPhysics);
+  if (controlsLayout === "bouncing") requestAnimationFrame(updateNormalPhysics);
 }
 
 function endArcadeGame() {
@@ -1927,10 +2142,10 @@ function endArcadeGame() {
   if (playBtn) playBtn.style.opacity = "1";
   if (nextBtn) nextBtn.style.opacity = "1";
 
-  [btnDrawer, btnTheme, btnUpload].forEach(b => { if (b) b.style.display = "grid"; });
+  applyControlsLayout(controlsLayout);
 
   document.getElementById("arcade-exit-btn").style.display = "none";
-  requestAnimationFrame(updateNormalPhysics);
+  if (controlsLayout === "bouncing") requestAnimationFrame(updateNormalPhysics);
 }
 
 // ========================================================
@@ -1986,8 +2201,19 @@ function setupListeners() {
   if (btnEngineCyber) btnEngineCyber.addEventListener("click", () => setAestheticEngine("cyber"));
   if (btnEngineCalm) btnEngineCalm.addEventListener("click", () => setAestheticEngine("calm"));
 
+  // Layout Buttons
+  if (btnLayoutBouncing) btnLayoutBouncing.addEventListener("click", () => applyControlsLayout("bouncing"));
+  if (btnLayoutAssist) btnLayoutAssist.addEventListener("click", () => applyControlsLayout("assist"));
+
+  // Assist Skin Selection
+  document.querySelectorAll("#assist-skin-section .palette-chip").forEach(chip => {
+    chip.addEventListener("click", () => {
+      applyAssistSkin(chip.getAttribute("data-skin"));
+    });
+  });
+
   // Universal Accent Palette Chips
-  document.querySelectorAll(".palette-chip").forEach(chip => {
+  document.querySelectorAll("#cyber-palette-section .palette-chip").forEach(chip => {
     chip.addEventListener("click", () => {
       const accent = chip.getAttribute("data-accent");
       applyAestheticEngine(currentAestheticMode, accent);
@@ -2090,7 +2316,7 @@ function setupListeners() {
 
   let lastTouchTime = 0;
   function handleZenTrigger(e) {
-    if (isArcadeMode || e.target.closest("button") || e.target.closest("input") || e.target.closest("#seek-container") || e.target.closest(".playlist-drawer") || e.target.closest(".draggable-volume-box") || e.target.closest(".leaderboard-sidebar")) return;
+    if (isArcadeMode || e.target.closest("button") || e.target.closest("input") || e.target.closest("#seek-container") || e.target.closest(".playlist-drawer") || e.target.closest(".draggable-volume-box") || e.target.closest(".leaderboard-sidebar") || e.target.closest(".assist-ball-wrapper")) return;
     toggleZenMode();
   }
 
@@ -2104,6 +2330,9 @@ function setupListeners() {
 
   window.addEventListener("click", (e) => {
     if (isZenMode && !e.target.closest("#zen-toggle-btn")) exitZenMode();
+    if (assistRadialMenu && !e.target.closest(".assist-ball-wrapper")) {
+      assistRadialMenu.classList.remove("active");
+    }
   });
 
   document.addEventListener("keydown", (e) => {

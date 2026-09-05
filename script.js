@@ -24,7 +24,7 @@ function getOrCreateDeviceId() {
 }
 const DEVICE_ID = getOrCreateDeviceId();
 
-// All 42 Built-in Tracks
+// Built-in Tracks
 const baseTracks = [
   { id: "s1", title: "Chala Jata Hoon", artist: "", src: "song1.mp3" },
   { id: "s2", title: "Tera Mera Pyar Amar", artist: "", src: "song2.mp3" },
@@ -72,11 +72,19 @@ const baseTracks = [
 
 const FALLBACK_ARTIST = "My Favourite Artist";
 
-const backgrounds = [
+// Wallpaper Definitions for both engines
+const retroBackgrounds = [
   { name: "Wallpaper 1", desktop: "bg1-desktop.png", mobile: "bg1-mobile.png" },
   { name: "Wallpaper 2", desktop: "bg2-desktop.png", mobile: "bg2-mobile.png" },
   { name: "Wallpaper 3", desktop: "bg3-desktop.png", mobile: "bg3-mobile.png" },
   { name: "Wallpaper 4", desktop: "bg4-desktop.png", mobile: "bg4-mobile.png" }
+];
+
+const cyberBackgrounds = [
+  { name: "Cyber 1", desktop: "cyber-bg1-desktop.png", mobile: "cyber-bg1-mobile.png" },
+  { name: "Cyber 2", desktop: "cyber-bg2-desktop.png", mobile: "cyber-bg2-mobile.png" },
+  { name: "Cyber 3", desktop: "cyber-bg3-desktop.png", mobile: "cyber-bg3-mobile.png" },
+  { name: "Cyber 4", desktop: "cyber-bg4-desktop.png", mobile: "cyber-bg4-mobile.png" }
 ];
 
 const moods = [
@@ -87,7 +95,7 @@ const moods = [
 ];
 
 // ========================================================
-// 2. INDEXEDDB ENGINE (PERMANENT LOCAL AUDIO STORAGE)
+// 2. INDEXEDDB ENGINE (LOCAL AUDIO STORAGE)
 // ========================================================
 const IDB_NAME = "VibeMusicDB";
 const IDB_VERSION = 1;
@@ -165,13 +173,14 @@ let isZenMode = false;
 let isFading = false;
 let wakeLock = null;
 
-// Ping-Pong Dual Audio Engine Nodes
+// Dual Audio Engine
 let audioA, audioB;
 let activeAudio, standbyAudio;
 let nextPreloadedIndex = -1;
 
 let currentTab = "all"; 
-let activeCustomPlaylistName = null;
+let currentAestheticMode = localStorage.getItem("vibe_aesthetic_mode") || "retro"; // 'retro' or 'cyber'
+let currentCyberAccent = localStorage.getItem("vibe_cyber_accent") || "cyan"; // 'cyan', 'magenta', 'emerald'
 
 let currentBgIndex = localStorage.getItem("vibe_bg_idx") || "0";
 let customBgData = localStorage.getItem("vibe_custom_bg") || null;
@@ -179,7 +188,6 @@ let currentMoodIndex = parseInt(localStorage.getItem("vibe_mood_idx") || "1");
 let likedTrackIds = JSON.parse(localStorage.getItem("vibe_liked_songs") || "[]");
 let trackOverrides = JSON.parse(localStorage.getItem("vibe_track_overrides") || "{}");
 let hiddenTrackIds = JSON.parse(localStorage.getItem("vibe_hidden_songs") || "[]");
-let customPlaylists = JSON.parse(localStorage.getItem("vibe_custom_playlists") || "{}");
 
 let audioCtx = null;
 let rainGainNode = null;
@@ -195,16 +203,19 @@ let mainHeartBtn, mainHeartIcon, mainShareBtn, likedCountBadge;
 let moodToggleBtn, moodIcon, moodLabel, zenToggleBtn, arcadeToggleBtn, appRefreshBtn, refreshIcon;
 let searchInput, tabAllBtn, tabLikedBtn, rainSlider;
 let volumeSlider, volumeIcon, draggableVolume;
-let createPlaylistBtn, customPlaylistsContainer;
 let customBgInput, customBgLabel, customBgText;
 let playerContainer, controlsSection;
+
+// Theme & Mode Switcher DOM
+let modeToggleBtn, modeIcon, modeLabel;
+let btnEngineRetro, btnEngineCyber, cyberPaletteSection;
 
 // Leaderboard Elements
 let floatingScoreTab, leaderboardBackdrop, leaderboardSidebar;
 let sidebarGlobalScore, sidebarGlobalNick, sidebarPersonalScore, sidebarPersonalNick;
 let sidebarNickInput, sidebarSaveNickBtn;
 
-// Bouncing Balls (Normal Mode)
+// Bouncing Balls
 let btnDrawer, btnTheme, btnUpload;
 let balls = [];
 
@@ -263,6 +274,13 @@ async function initPlayer() {
   mainHeartIcon = document.getElementById("main-heart-icon");
   mainShareBtn = document.getElementById("main-share-btn");
 
+  modeToggleBtn = document.getElementById("mode-toggle-btn");
+  modeIcon = document.getElementById("mode-icon");
+  modeLabel = document.getElementById("mode-label");
+  btnEngineRetro = document.getElementById("btn-engine-retro");
+  btnEngineCyber = document.getElementById("btn-engine-cyber");
+  cyberPaletteSection = document.getElementById("cyber-palette-section");
+
   moodToggleBtn = document.getElementById("mood-toggle-btn");
   moodIcon = document.getElementById("mood-icon");
   moodLabel = document.getElementById("mood-label");
@@ -281,9 +299,6 @@ async function initPlayer() {
   mainAudioInput = document.getElementById("main-audio-input");
   uploadModal = document.getElementById("upload-modal");
   uploadStatusText = document.getElementById("upload-status-text");
-
-  createPlaylistBtn = document.getElementById("create-playlist-btn");
-  customPlaylistsContainer = document.getElementById("custom-playlists-container");
 
   customBgInput = document.getElementById("custom-bg-input");
   customBgLabel = document.getElementById("custom-bg-label");
@@ -305,6 +320,10 @@ async function initPlayer() {
   sidebarNickInput = document.getElementById("sidebar-nick-input");
   sidebarSaveNickBtn = document.getElementById("sidebar-save-nick-btn");
 
+  // Apply saved aesthetic engine
+  applyAestheticEngine(currentAestheticMode, currentCyberAccent);
+
+  // Background Setup
   if (currentBgIndex === "custom" && customBgData) {
     applyCustomBackground(customBgData);
   } else {
@@ -357,12 +376,56 @@ async function loadSavedLocalSongs() {
 }
 
 // ========================================================
+// AESTHETIC ENGINE & MODE SWITCHER
+// ========================================================
+function applyAestheticEngine(mode, accent = "cyan") {
+  currentAestheticMode = mode;
+  currentCyberAccent = accent;
+  localStorage.setItem("vibe_aesthetic_mode", mode);
+  localStorage.setItem("vibe_cyber_accent", accent);
+
+  document.body.classList.remove("theme-retro", "theme-cyber", "accent-cyan", "accent-magenta", "accent-emerald");
+
+  if (mode === "cyber") {
+    document.body.classList.add("theme-cyber", `accent-${accent}`);
+    if (modeLabel) modeLabel.textContent = "Cyber";
+    if (modeIcon) modeIcon.className = "ri-flashlight-line";
+
+    if (btnEngineCyber) btnEngineCyber.classList.add("active");
+    if (btnEngineRetro) btnEngineRetro.classList.remove("active");
+    if (cyberPaletteSection) cyberPaletteSection.style.display = "flex";
+  } else {
+    document.body.classList.add("theme-retro");
+    if (modeLabel) modeLabel.textContent = "Retro";
+    if (modeIcon) modeIcon.className = "ri-radio-2-line";
+
+    if (btnEngineRetro) btnEngineRetro.classList.add("active");
+    if (btnEngineCyber) btnEngineCyber.classList.remove("active");
+    if (cyberPaletteSection) cyberPaletteSection.style.display = "none";
+  }
+
+  // Update Cyber Accent Chips
+  document.querySelectorAll(".palette-chip").forEach(chip => {
+    chip.classList.toggle("active", chip.getAttribute("data-accent") === accent);
+  });
+
+  // Re-apply background for active engine
+  if (currentBgIndex !== "custom") {
+    applyBackground(parseInt(currentBgIndex) || 0);
+  }
+}
+
+function toggleAestheticMode() {
+  const nextMode = currentAestheticMode === "retro" ? "cyber" : "retro";
+  applyAestheticEngine(nextMode, currentCyberAccent);
+}
+
+// ========================================================
 // SUPABASE SYNC & UPLOAD
 // ========================================================
 async function fetchSupabaseSongs() {
   if (!supabaseClient) return;
   try {
-    // 1. Fetch cloud playlist tracks
     const { data, error } = await supabaseClient
       .from('songs')
       .select('*')
@@ -377,7 +440,6 @@ async function fetchSupabaseSongs() {
       }));
     }
 
-    // 2. Fetch globally deleted base track IDs
     const { data: delBaseData } = await supabaseClient
       .from('deleted_base_tracks')
       .select('track_id');
@@ -490,9 +552,6 @@ function getNextTrackIndex() {
   let activePool = playlist;
   if (currentTab === "liked") {
     activePool = playlist.filter(t => likedTrackIds.includes(t.id));
-  } else if (currentTab === "custom" && activeCustomPlaylistName) {
-    const allowedIds = customPlaylists[activeCustomPlaylistName] || [];
-    activePool = playlist.filter(t => allowedIds.includes(t.id));
   }
 
   if (activePool.length === 0) activePool = playlist;
@@ -573,7 +632,7 @@ function attemptAutoplay() {
       updateMediaSessionMetadata(playlist[currentTrackIndex]);
       preloadStandbyTrack();
     }).catch((err) => {
-      console.warn("Autoplay blocked by browser policy; awaiting gesture:", err);
+      console.warn("Autoplay awaiting user gesture:", err);
       const unlockAutoplay = () => {
         playTrack();
         window.removeEventListener("click", unlockAutoplay);
@@ -768,7 +827,7 @@ function toggleLikeCurrentTrack() {
   renderPlaylist();
 }
 
-// Share Current Song (Professional English format)
+// Share Track (Professional English)
 async function shareCurrentTrack() {
   const currentTrack = playlist[currentTrackIndex];
   if (!currentTrack) return;
@@ -787,9 +846,7 @@ async function shareCurrentTrack() {
         url: appUrl
       });
     } catch (err) {
-      if (err.name !== 'AbortError') {
-        copyShareFallback(shareText, appUrl);
-      }
+      if (err.name !== 'AbortError') copyShareFallback(shareText, appUrl);
     }
   } else {
     copyShareFallback(shareText, appUrl);
@@ -801,9 +858,7 @@ function copyShareFallback(text, url) {
   if (navigator.clipboard) {
     navigator.clipboard.writeText(fullMsg).then(() => {
       alert("Link copied! Share it on WhatsApp, Instagram, or Snapchat.");
-    }).catch(() => {
-      prompt("Copy link to share:", fullMsg);
-    });
+    }).catch(() => { prompt("Copy link to share:", fullMsg); });
   } else {
     prompt("Copy link to share:", fullMsg);
   }
@@ -818,7 +873,7 @@ function updateTrackCount() {
 }
 
 // ========================================================
-// 3. EDIT TRACK INFO (ADMIN GLOBAL vs. USER PERSONAL)
+// 3. EDIT TRACK INFO (GLOBAL ADMIN vs. PERSONAL)
 // ========================================================
 async function editTrackInfo(trackId) {
   const track = playlist.find(t => t.id === trackId);
@@ -893,7 +948,7 @@ async function editTrackInfo(trackId) {
 }
 
 // ========================================================
-// 4. DELETE TRACK (GLOBAL ADMIN DELETE vs. PERSONAL REMOVE)
+// 4. DELETE TRACK (GLOBAL ADMIN vs. PERSONAL REMOVE)
 // ========================================================
 async function deleteTrack(trackId) {
   const track = playlist.find(t => t.id === trackId);
@@ -901,7 +956,6 @@ async function deleteTrack(trackId) {
 
   let deleteForEveryone = false;
 
-  // Prompt options for both Cloud & Built-in Base tracks
   if (trackId.startsWith("sb_") || trackId.startsWith("s")) {
     const deleteChoice = confirm(
       `Track: "${track.title}"\n\n` +
@@ -925,23 +979,15 @@ async function deleteTrack(trackId) {
 
   const wasPlaying = playlist[currentTrackIndex] && playlist[currentTrackIndex].id === trackId;
 
-  // A. Global Deletion Mode
   if (deleteForEveryone && supabaseClient) {
     showUploadModal("Deleting track globally for everyone...");
     try {
       if (trackId.startsWith("sb_")) {
-        // Delete from Supabase songs table
         const dbId = trackId.replace("sb_", "");
-        const { error } = await supabaseClient
-          .from('songs')
-          .delete()
-          .eq('id', dbId);
+        const { error } = await supabaseClient.from('songs').delete().eq('id', dbId);
         if (error) throw error;
       } else if (trackId.startsWith("s")) {
-        // Insert into deleted_base_tracks table
-        const { error } = await supabaseClient
-          .from('deleted_base_tracks')
-          .upsert([{ track_id: trackId }]);
+        const { error } = await supabaseClient.from('deleted_base_tracks').upsert([{ track_id: trackId }]);
         if (error) throw error;
       }
 
@@ -953,9 +999,7 @@ async function deleteTrack(trackId) {
       alert("Global deletion failed: " + err.message);
       return;
     }
-  } 
-  // B. Local / Device Deletion Mode
-  else if (track.isLocal) {
+  } else if (track.isLocal) {
     await deleteLocalTrackFromDB(trackId);
     localTracks = localTracks.filter(t => t.id !== trackId);
     alert("Local track deleted from this device.");
@@ -1004,7 +1048,7 @@ function updateMediaSessionMetadata(track) {
 }
 
 // ========================================================
-// 5. PERSISTENT LOCAL FILE UPLOAD (INDEXEDDB)
+// 5. LOCAL FILE UPLOAD (INDEXEDDB)
 // ========================================================
 async function handleLocalFileUpload(event) {
   const files = event.target.files;
@@ -1073,8 +1117,7 @@ function applyMood(index, userExplicitChoice = true) {
   if (moodLabel) moodLabel.textContent = mood.name;
   if (moodIcon) moodIcon.className = mood.icon;
 
-  const moodBtns = document.querySelectorAll(".mood-btn");
-  moodBtns.forEach((btn, i) => {
+  document.querySelectorAll(".mood-btn").forEach((btn, i) => {
     btn.classList.toggle("active", i === currentMoodIndex);
   });
 
@@ -1098,15 +1141,16 @@ function cycleMood() {
 }
 
 function applyBackground(index) {
-  if (index < 0 || index >= backgrounds.length) index = 0;
+  const targetBgList = currentAestheticMode === "cyber" ? cyberBackgrounds : retroBackgrounds;
+  if (index < 0 || index >= targetBgList.length) index = 0;
   currentBgIndex = String(index);
   localStorage.setItem("vibe_bg_idx", currentBgIndex);
 
-  const bg = backgrounds[index];
+  const bg = targetBgList[index];
   document.documentElement.style.setProperty('--bg-desktop', `url('${bg.desktop}')`);
   document.documentElement.style.setProperty('--bg-mobile', `url('${bg.mobile}')`);
 
-  document.querySelectorAll(".bg-btn").forEach((btn, i) => {
+  document.querySelectorAll(".bg-btn:not(#custom-bg-label)").forEach((btn, i) => {
     btn.classList.toggle("active", i === index);
   });
   if (customBgLabel) customBgLabel.classList.remove("active");
@@ -1125,7 +1169,7 @@ function applyCustomBackground(dataUrl) {
   document.documentElement.style.setProperty('--bg-desktop', `url('${dataUrl}')`);
   document.documentElement.style.setProperty('--bg-mobile', `url('${dataUrl}')`);
 
-  document.querySelectorAll(".bg-btn").forEach(btn => btn.classList.remove("active"));
+  document.querySelectorAll(".bg-btn:not(#custom-bg-label)").forEach(btn => btn.classList.remove("active"));
   if (customBgLabel) customBgLabel.classList.add("active");
 }
 
@@ -1458,16 +1502,14 @@ function initWeatherCanvas() {
   drawWeather();
 }
 
-function renderCustomPlaylists() {}
-
 // ========================================================
-// 6. ARCADE MODE (LEADERBOARD SIDEBAR & UNIQUE TAG SYSTEM)
+// 6. ARCADE MODE
 // ========================================================
 function initArcadeUI() {
   liveScoreHUD = document.createElement("div");
   liveScoreHUD.className = "arcade-live-hud";
   liveScoreHUD.innerHTML = `
-    <span><i class="ri-gamepad-fill" style="color:var(--accent-gold);"></i> Lv: <span id="hud-level">1</span></span>
+    <span><i class="ri-gamepad-fill" style="color:var(--accent-primary);"></i> Lv: <span id="hud-level">1</span></span>
     <span>Score: <span id="hud-score">0</span></span>
   `;
   document.body.appendChild(liveScoreHUD);
@@ -1542,9 +1584,7 @@ function initArcadeUI() {
       sidebarSaveNickBtn.textContent = "Checking...";
       const isClaimed = await claimOrUpdateGameTag(tag);
       sidebarSaveNickBtn.textContent = "Save";
-      if (isClaimed) {
-        alert(`Tag "${tag}" claimed successfully!`);
-      }
+      if (isClaimed) alert(`Tag "${tag}" claimed successfully!`);
     });
   }
 }
@@ -1564,7 +1604,6 @@ function updateLiveHUD() {
   if (lEl) lEl.textContent = arcadeLevel;
 }
 
-// Global High Score Fetch
 async function fetchGlobalHighScore() {
   if (!supabaseClient) return;
   try {
@@ -1586,7 +1625,6 @@ async function fetchGlobalHighScore() {
   }
 }
 
-// Unique Tag Reservation & Direct Rename/Claiming System
 async function claimOrUpdateGameTag(newTag) {
   if (!supabaseClient) return false;
 
@@ -1649,7 +1687,6 @@ async function claimOrUpdateGameTag(newTag) {
   }
 }
 
-// Global High Score Sync
 async function updateGlobalScore(newScore) {
   if (!supabaseClient || !arcadeNickname || newScore <= 0) return;
   try {
@@ -1660,9 +1697,7 @@ async function updateGlobalScore(newScore) {
       .maybeSingle();
 
     let existingScore = 0;
-    if (!error && data) {
-      existingScore = data.score || 0;
-    }
+    if (!error && data) existingScore = data.score || 0;
 
     if (newScore > existingScore) {
       const { error: upsertErr } = await supabaseClient
@@ -1699,11 +1734,8 @@ async function saveArcadeNickname() {
 
 function prepareArcadeStart() {
   gameMsgOverlay.classList.remove("active");
-  if (!arcadeNickname) {
-    nicknameModal.classList.add("active");
-  } else {
-    requestStartArcade();
-  }
+  if (!arcadeNickname) nicknameModal.classList.add("active");
+  else requestStartArcade();
 }
 
 async function requestStartArcade() {
@@ -1933,6 +1965,18 @@ function setupListeners() {
   if (moodToggleBtn) moodToggleBtn.addEventListener("click", cycleMood);
   if (zenToggleBtn) zenToggleBtn.addEventListener("click", toggleZenMode);
 
+  // Mode Switcher Listeners
+  if (modeToggleBtn) modeToggleBtn.addEventListener("click", toggleAestheticMode);
+  if (btnEngineRetro) btnEngineRetro.addEventListener("click", () => applyAestheticEngine("retro", currentCyberAccent));
+  if (btnEngineCyber) btnEngineCyber.addEventListener("click", () => applyAestheticEngine("cyber", currentCyberAccent));
+
+  document.querySelectorAll(".palette-chip").forEach(chip => {
+    chip.addEventListener("click", () => {
+      const accent = chip.getAttribute("data-accent");
+      applyAestheticEngine("cyber", accent);
+    });
+  });
+
   if (appRefreshBtn) {
     appRefreshBtn.addEventListener("click", () => {
       if (refreshIcon) refreshIcon.classList.add("spin-anim");
@@ -1940,7 +1984,7 @@ function setupListeners() {
       fetchGlobalHighScore();
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations().then(registrations => {
-          for (let registration of registrations) { registration.update(); }
+          for (let registration of registrations) registration.update();
         });
       }
       setTimeout(() => {
@@ -1976,7 +2020,6 @@ function setupListeners() {
   if (tabAllBtn) {
     tabAllBtn.addEventListener("click", () => {
       currentTab = "all";
-      activeCustomPlaylistName = null;
       tabAllBtn.classList.add("active");
       if (tabLikedBtn) tabLikedBtn.classList.remove("active");
       renderPlaylist();
@@ -1987,7 +2030,6 @@ function setupListeners() {
   if (tabLikedBtn) {
     tabLikedBtn.addEventListener("click", () => {
       currentTab = "liked";
-      activeCustomPlaylistName = null;
       tabLikedBtn.classList.add("active");
       if (tabAllBtn) tabAllBtn.classList.remove("active");
       renderPlaylist();
@@ -2009,11 +2051,8 @@ function setupListeners() {
       const userPin = prompt(`Enter Admin PIN to upload "${file.name}" to Main Playlist:`);
       if (userPin === null) { e.target.value = ""; return; }
 
-      if (userPin.trim() === ADMIN_PIN) {
-        handleMainPlaylistUpload(file);
-      } else {
-        alert("Incorrect PIN! Upload cancelled.");
-      }
+      if (userPin.trim() === ADMIN_PIN) handleMainPlaylistUpload(file);
+      else alert("Incorrect PIN! Upload cancelled.");
       e.target.value = "";
     });
   }

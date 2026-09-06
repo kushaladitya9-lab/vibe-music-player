@@ -95,6 +95,14 @@ const moods = [
   { name: "Midnight", cls: "mood-night", icon: "ri-moon-clear-line", weather: "stars" }
 ];
 
+// Curated Default Skins
+const defaultSkins = [
+  { id: "chai", label: "☕ Cutting Chai" },
+  { id: "sakura", label: "🌸 Sakura" },
+  { id: "lotus", label: "🪷 Lotus" },
+  { id: "cassette", label: "📼 Cyber Tape" }
+];
+
 // ========================================================
 // 2. INDEXEDDB ENGINE (LOCAL AUDIO STORAGE)
 // ========================================================
@@ -184,6 +192,7 @@ let currentAestheticMode = localStorage.getItem("vibe_aesthetic_mode") || "retro
 let currentAccentHue = localStorage.getItem("vibe_accent_hue") || "gold"; 
 let controlsLayout = localStorage.getItem("vibe_controls_layout") || "bouncing"; 
 let assistSkin = localStorage.getItem("vibe_assist_skin") || "chai"; 
+let customAssistSkins = JSON.parse(localStorage.getItem("vibe_custom_assist_skins") || "[]");
 
 let currentBgIndex = localStorage.getItem("vibe_bg_idx") || "0";
 let customBgData = localStorage.getItem("vibe_custom_bg") || null;
@@ -212,7 +221,7 @@ let playerContainer, controlsSection;
 // Theme & Mode Switcher DOM
 let modeToggleBtn, modeIcon, modeLabel;
 let btnEngineRetro, btnEngineCyber, btnEngineCalm;
-let btnLayoutBouncing, btnLayoutAssist, assistSkinSection;
+let btnLayoutBouncing, btnLayoutAssist, assistSkinSection, assistChipsRow, btnAddEmojiSkin;
 
 // Leaderboard Elements
 let floatingScoreTab, leaderboardBackdrop, leaderboardSidebar;
@@ -290,6 +299,8 @@ async function initPlayer() {
   btnLayoutBouncing = document.getElementById("btn-layout-bouncing");
   btnLayoutAssist = document.getElementById("btn-layout-assist");
   assistSkinSection = document.getElementById("assist-skin-section");
+  assistChipsRow = document.getElementById("assist-chips-row");
+  btnAddEmojiSkin = document.getElementById("btn-add-emoji-skin");
 
   moodToggleBtn = document.getElementById("mood-toggle-btn");
   moodIcon = document.getElementById("mood-icon");
@@ -336,6 +347,7 @@ async function initPlayer() {
 
   applyAestheticEngine(currentAestheticMode, currentAccentHue);
   applyControlsLayout(controlsLayout);
+  renderAssistSkinChips();
   applyAssistSkin(assistSkin);
 
   if (currentBgIndex === "custom" && customBgData) {
@@ -433,15 +445,15 @@ function setAestheticEngine(targetMode) {
   if (targetMode === "cyber") {
     currentAccentHue = "cyan";
     applyBackground(4);
-    applyAssistSkin("prism"); // Auto-match 3D Holographic Glitch Prism
+    applyAssistSkin("cassette");
   } else if (targetMode === "calm") {
     currentAccentHue = "lavender";
     applyBackground(8);
-    applyAssistSkin("moon"); // Auto-match realistic photo twilight moon
+    applyAssistSkin("sakura");
   } else {
     currentAccentHue = "gold";
     applyBackground(0);
-    applyAssistSkin("chai"); // Auto-match cutting chai
+    applyAssistSkin("chai");
   }
 
   applyAestheticEngine(targetMode, currentAccentHue);
@@ -454,8 +466,80 @@ function toggleAestheticMode() {
 }
 
 // ========================================================
-// 4 THEME-MATCHED ASSIST BALL SKINS
+// ASSIST BALL SKINS (DEFAULT + CUSTOM EMOJI SKINS)
 // ========================================================
+function renderAssistSkinChips() {
+  if (!assistChipsRow) return;
+  assistChipsRow.innerHTML = "";
+
+  // 1. Render Curated Default Skins
+  defaultSkins.forEach(skin => {
+    const chip = document.createElement("button");
+    chip.className = `palette-chip ${assistSkin === skin.id ? "active" : ""}`;
+    chip.setAttribute("data-skin", skin.id);
+    chip.textContent = skin.label;
+    chip.addEventListener("click", () => applyAssistSkin(skin.id));
+    assistChipsRow.appendChild(chip);
+  });
+
+  // 2. Render User's Custom Emoji Skins (Private/Local)
+  customAssistSkins.forEach(custom => {
+    const chip = document.createElement("button");
+    chip.className = `palette-chip ${assistSkin === custom.id ? "active" : ""}`;
+    chip.setAttribute("data-skin", custom.id);
+    
+    chip.innerHTML = `
+      <span>${custom.emoji} Custom</span>
+      <span class="chip-del-btn" title="Delete this skin"><i class="ri-close-circle-line"></i></span>
+    `;
+
+    chip.addEventListener("click", (e) => {
+      if (e.target.closest(".chip-del-btn")) return;
+      applyAssistSkin(custom.id);
+    });
+
+    const delBtn = chip.querySelector(".chip-del-btn");
+    delBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      deleteCustomEmojiSkin(custom.id);
+    });
+
+    assistChipsRow.appendChild(chip);
+  });
+}
+
+function addNewEmojiSkin() {
+  const userInput = prompt("Enter a single emoji from your keyboard for your Assist Ball skin (e.g. 🎧, ⚡, 🪐, 🍕, 🦋, 🔥):");
+  if (!userInput) return;
+
+  const trimmed = userInput.trim();
+  const emojiArray = Array.from(trimmed);
+
+  if (emojiArray.length === 0) return;
+  const pickedEmoji = emojiArray[0]; // Extract exact single emoji character
+
+  const newSkinId = `emoji_${Date.now()}`;
+  customAssistSkins.push({
+    id: newSkinId,
+    emoji: pickedEmoji
+  });
+
+  localStorage.setItem("vibe_custom_assist_skins", JSON.stringify(customAssistSkins));
+  applyAssistSkin(newSkinId);
+  renderAssistSkinChips();
+}
+
+function deleteCustomEmojiSkin(skinId) {
+  if (!confirm("Delete this custom emoji skin?")) return;
+  customAssistSkins = customAssistSkins.filter(s => s.id !== skinId);
+  localStorage.setItem("vibe_custom_assist_skins", JSON.stringify(customAssistSkins));
+
+  if (assistSkin === skinId) {
+    applyAssistSkin("chai");
+  }
+  renderAssistSkinChips();
+}
+
 function applyControlsLayout(layout) {
   controlsLayout = layout;
   localStorage.setItem("vibe_controls_layout", layout);
@@ -489,7 +573,12 @@ function applyAssistSkin(skin) {
   if (!assistBall || !assistSkinSlot) return;
   assistBall.className = `assist-ball skin-${skin}`;
 
-  if (skin === "chai") {
+  // Check if it is a Custom User Emoji Skin
+  const customMatch = customAssistSkins.find(s => s.id === skin);
+
+  if (customMatch) {
+    assistSkinSlot.innerHTML = `<div class="assist-custom-emoji">${customMatch.emoji}</div>`;
+  } else if (skin === "chai") {
     // 1. Cutting Chai Glass with Rising Steam (Retro)
     assistSkinSlot.innerHTML = `
       <svg viewBox="0 0 100 100" class="assist-svg-icon">
@@ -507,99 +596,96 @@ function applyAssistSkin(skin) {
         <polygon points="33,48 67,48 61,84 39,84" fill="url(#teaGrad)"/>
       </svg>
     `;
-  } else if (skin === "moon") {
-    // 2. Realistic Twilight Crescent (Calm 1 - Exact matching photo)
+  } else if (skin === "sakura") {
+    // 2. Sakura Blossom 🌸 (Calm 1)
     assistSkinSlot.innerHTML = `
-      <svg viewBox="0 0 100 100" class="assist-svg-icon moon-svg">
+      <svg viewBox="0 0 100 100" class="assist-svg-icon sakura-svg">
         <defs>
-          <filter id="moonGlowHaze" x="-30%" y="-30%" width="160%" height="160%">
-            <feGaussianBlur in="SourceGraphic" stdDeviation="3.5" result="blur"/>
-            <feMerge>
-              <feMergeNode in="blur"/>
-              <feMergeNode in="SourceGraphic"/>
-            </feMerge>
-          </filter>
-          <linearGradient id="crescentTone" x1="0%" y1="0%" x2="100%" y2="100%">
+          <linearGradient id="sakuraPetal" x1="0%" y1="0%" x2="100%" y2="100%">
             <stop offset="0%" stop-color="#ffffff"/>
-            <stop offset="50%" stop-color="#fff1e6"/>
-            <stop offset="100%" stop-color="#fed7aa"/>
+            <stop offset="50%" stop-color="#fbcfe8"/>
+            <stop offset="100%" stop-color="#f472b6"/>
           </linearGradient>
-          <radialGradient id="earthshineBody" cx="44%" cy="50%" r="50%">
-            <stop offset="0%" stop-color="rgba(255, 255, 255, 0.16)"/>
-            <stop offset="65%" stop-color="rgba(215, 225, 245, 0.06)"/>
-            <stop offset="100%" stop-color="rgba(0, 0, 0, 0)"/>
-          </radialGradient>
         </defs>
-        <!-- Subtle Natural Earthshine Silhouette (Unlit Moon Body) -->
-        <circle cx="50" cy="50" r="35" fill="url(#earthshineBody)" stroke="rgba(255,255,255,0.1)" stroke-width="0.8"/>
-        <!-- Radiant Glowing Crescent Edge -->
-        <path class="moon-crescent-path" d="M 48 16 A 34 34 0 0 1 80 64 A 36 36 0 0 0 48 16 Z" fill="url(#crescentTone)" filter="url(#moonGlowHaze)"/>
-        <path d="M 48 16 A 34 34 0 0 1 80 64 A 36 36 0 0 0 48 16 Z" fill="#ffffff" opacity="0.9"/>
+        <g class="sakura-flower-group" style="transform-origin: 50px 50px;">
+          <g fill="url(#sakuraPetal)" stroke="rgba(244,114,182,0.4)" stroke-width="1">
+            <path d="M50 50 C40 32, 34 16, 46 12 C49 14, 50 16, 51 14 C63 16, 58 32, 50 50 Z"/>
+            <path d="M50 50 C68 40, 84 36, 86 48 C84 51, 82 52, 84 53 C82 65, 68 58, 50 50 Z"/>
+            <path d="M50 50 C62 66, 72 82, 60 88 C57 86, 56 84, 54 86 C44 82, 46 66, 50 50 Z"/>
+            <path d="M50 50 C38 66, 26 80, 18 70 C20 67, 22 66, 20 64 C18 52, 34 46, 50 50 Z"/>
+            <path d="M50 50 C32 40, 16 32, 20 20 C23 21, 25 22, 25 20 C36 18, 42 34, 50 50 Z"/>
+          </g>
+          <g stroke="#ec4899" stroke-width="1.6" stroke-linecap="round">
+            <line x1="50" y1="50" x2="50" y2="40"/>
+            <line x1="50" y1="50" x2="58" y2="44"/>
+            <line x1="50" y1="50" x2="56" y2="56"/>
+            <line x1="50" y1="50" x2="44" y2="56"/>
+            <line x1="50" y1="50" x2="42" y2="44"/>
+          </g>
+          <circle cx="50" cy="40" r="1.8" fill="#fde047"/>
+          <circle cx="58" cy="44" r="1.8" fill="#fde047"/>
+          <circle cx="56" cy="56" r="1.8" fill="#fde047"/>
+          <circle cx="44" cy="56" r="1.8" fill="#fde047"/>
+          <circle cx="42" cy="44" r="1.8" fill="#fde047"/>
+          <circle cx="50" cy="50" r="3.2" fill="#ec4899"/>
+        </g>
       </svg>
     `;
   } else if (skin === "lotus") {
-    // 3. Pure Standalone Zen Lotus (Calm 2 - Completely borderless)
+    // 3. Sacred Lotus 🪷 (Calm 2)
     assistSkinSlot.innerHTML = `
-      <svg viewBox="0 0 100 100" class="assist-svg-icon lotus-standalone-svg">
+      <svg viewBox="0 0 100 100" class="assist-svg-icon lotus-emoji-svg">
         <defs>
-          <linearGradient id="lotusOuterGrad" x1="0%" y1="100%" x2="0%" y2="0%">
-            <stop offset="0%" stop-color="#c084fc"/>
-            <stop offset="100%" stop-color="#fdf4ff"/>
+          <linearGradient id="lotusOuterPetal" x1="0%" y1="100%" x2="0%" y2="0%">
+            <stop offset="0%" stop-color="#db2777"/>
+            <stop offset="60%" stop-color="#f472b6"/>
+            <stop offset="100%" stop-color="#ffffff"/>
           </linearGradient>
-          <linearGradient id="lotusInnerGrad" x1="0%" y1="100%" x2="0%" y2="0%">
-            <stop offset="0%" stop-color="#e879f9"/>
+          <linearGradient id="lotusCenterPetal" x1="0%" y1="100%" x2="0%" y2="0%">
+            <stop offset="0%" stop-color="#e11d48"/>
+            <stop offset="60%" stop-color="#fb7185"/>
             <stop offset="100%" stop-color="#ffffff"/>
           </linearGradient>
         </defs>
         <g class="lotus-flower-group" style="transform-origin: 50px 65px;">
-          <!-- Wide Outer Petals -->
-          <path d="M50 78 C24 78, 12 56, 18 42 C24 30, 42 54, 50 78 Z" fill="url(#lotusOuterGrad)" opacity="0.85"/>
-          <path d="M50 78 C76 78, 88 56, 82 42 C76 30, 58 54, 50 78 Z" fill="url(#lotusOuterGrad)" opacity="0.85"/>
-          <!-- Inner Graceful Petals -->
-          <path d="M50 78 C30 72, 25 44, 38 32 C44 26, 48 56, 50 78 Z" fill="url(#lotusInnerGrad)" opacity="0.95"/>
-          <path d="M50 78 C70 72, 75 44, 62 32 C56 26, 52 56, 50 78 Z" fill="url(#lotusInnerGrad)" opacity="0.95"/>
-          <!-- Crown Petal -->
-          <path d="M50 78 C42 56, 40 22, 50 14 C60 22, 58 56, 50 78 Z" fill="#ffffff"/>
-          <path d="M50 78 C46 62, 45 32, 50 24 C55 32, 54 62, 50 78 Z" fill="url(#lotusInnerGrad)" opacity="0.75"/>
-          <!-- Soft Center Glow Dew -->
-          <circle cx="50" cy="58" r="3.5" fill="#fde047"/>
+          <ellipse cx="50" cy="74" rx="22" ry="6" fill="#16a34a" opacity="0.9"/>
+          <path d="M50 72 C22 72, 12 56, 18 44 C26 34, 42 54, 50 72 Z" fill="url(#lotusOuterPetal)"/>
+          <path d="M50 72 C78 72, 88 56, 82 44 C74 34, 58 54, 50 72 Z" fill="url(#lotusOuterPetal)"/>
+          <path d="M50 72 C30 68, 24 46, 34 34 C42 26, 48 54, 50 72 Z" fill="url(#lotusOuterPetal)"/>
+          <path d="M50 72 C70 68, 76 46, 66 34 C58 26, 52 54, 50 72 Z" fill="url(#lotusOuterPetal)"/>
+          <path d="M50 72 C40 54, 38 28, 50 18 C62 28, 60 54, 50 72 Z" fill="url(#lotusCenterPetal)"/>
+          <circle cx="50" cy="52" r="3" fill="#fde047"/>
         </g>
       </svg>
     `;
-  } else if (skin === "prism") {
-    // 4. Holographic Glitch Prism / Shuriken (Cyber)
+  } else if (skin === "cassette") {
+    // 4. Cyber Cassette 📼 (Cyber)
     assistSkinSlot.innerHTML = `
-      <svg viewBox="0 0 100 100" class="assist-svg-icon prism-shuriken-svg">
+      <svg viewBox="0 0 100 100" class="assist-svg-icon cassette-svg">
         <defs>
-          <linearGradient id="prismCyan" x1="0%" y1="0%" x2="100%" y2="100%">
+          <linearGradient id="cyberNeonBorder" x1="0%" y1="0%" x2="100%" y2="100%">
             <stop offset="0%" stop-color="#00f2fe"/>
-            <stop offset="100%" stop-color="#0072ff"/>
-          </linearGradient>
-          <linearGradient id="prismMagenta" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stop-color="#ff007f"/>
-            <stop offset="100%" stop-color="#7928ca"/>
-          </linearGradient>
-          <linearGradient id="prismWhite" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stop-color="#ffffff"/>
-            <stop offset="100%" stop-color="#a5f3fc"/>
+            <stop offset="100%" stop-color="#ff007f"/>
           </linearGradient>
         </defs>
-        <g class="prism-group" style="transform-origin: 50px 50px;">
-          <!-- 4 3D Faceted Points of Shuriken -->
-          <polygon points="50,10 50,50 36,36" fill="url(#prismCyan)"/>
-          <polygon points="50,10 64,36 50,50" fill="url(#prismWhite)" opacity="0.9"/>
-          
-          <polygon points="90,50 50,50 64,36" fill="url(#prismMagenta)"/>
-          <polygon points="90,50 64,64 50,50" fill="url(#prismCyan)" opacity="0.8"/>
-          
-          <polygon points="50,90 50,50 64,64" fill="url(#prismMagenta)"/>
-          <polygon points="50,90 36,64 50,50" fill="url(#prismWhite)" opacity="0.85"/>
-          
-          <polygon points="10,50 50,50 36,64" fill="url(#prismCyan)"/>
-          <polygon points="10,50 36,36 50,50" fill="url(#prismMagenta)" opacity="0.9"/>
-          <!-- Glowing Diamond Core -->
-          <polygon points="50,42 58,50 50,58 42,50" fill="#ffffff"/>
+        <rect x="14" y="24" width="72" height="52" rx="7" fill="rgba(8, 14, 24, 0.88)" stroke="url(#cyberNeonBorder)" stroke-width="2.2"/>
+        <rect x="22" y="32" width="56" height="26" rx="4" fill="rgba(255,255,255,0.06)" stroke="rgba(0, 242, 254, 0.4)" stroke-width="1.2"/>
+        <line x1="22" y1="36" x2="78" y2="36" stroke="#ff007f" stroke-width="1.5" opacity="0.8"/>
+        <g class="cassette-spool cassette-spool-left" style="transform-origin: 36px 45px;">
+          <circle cx="36" cy="45" r="9" fill="#030712" stroke="#00f2fe" stroke-width="1.8"/>
+          <circle cx="36" cy="45" r="4" fill="#ffffff"/>
+          <line x1="36" y1="38" x2="36" y2="52" stroke="#00f2fe" stroke-width="1.5"/>
+          <line x1="29" y1="45" x2="43" y2="45" stroke="#00f2fe" stroke-width="1.5"/>
         </g>
+        <g class="cassette-spool cassette-spool-right" style="transform-origin: 64px 45px;">
+          <circle cx="64" cy="45" r="9" fill="#030712" stroke="#ff007f" stroke-width="1.8"/>
+          <circle cx="64" cy="45" r="4" fill="#ffffff"/>
+          <line x1="64" y1="38" x2="64" y2="52" stroke="#ff007f" stroke-width="1.5"/>
+          <line x1="57" y1="45" x2="71" y2="45" stroke="#ff007f" stroke-width="1.5"/>
+        </g>
+        <polygon points="26,76 32,64 68,64 74,76" fill="rgba(0, 242, 254, 0.12)" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+        <circle cx="34" cy="70" r="2" fill="#ffffff"/>
+        <circle cx="66" cy="70" r="2" fill="#ffffff"/>
       </svg>
     `;
   }
@@ -608,7 +694,8 @@ function applyAssistSkin(skin) {
     assistBall.classList.toggle("is-playing", !activeAudio.paused);
   }
 
-  document.querySelectorAll("#assist-skin-section .palette-chip").forEach(chip => {
+  // Update active chip state
+  document.querySelectorAll("#assist-chips-row .palette-chip").forEach(chip => {
     chip.classList.toggle("active", chip.getAttribute("data-skin") === skin);
   });
 }
@@ -2347,12 +2434,10 @@ function setupListeners() {
   if (btnLayoutBouncing) btnLayoutBouncing.addEventListener("click", () => applyControlsLayout("bouncing"));
   if (btnLayoutAssist) btnLayoutAssist.addEventListener("click", () => applyControlsLayout("assist"));
 
-  // Curated Assist Skin Selection
-  document.querySelectorAll("#assist-skin-section .palette-chip").forEach(chip => {
-    chip.addEventListener("click", () => {
-      applyAssistSkin(chip.getAttribute("data-skin"));
-    });
-  });
+  // Add Emoji Skin Button
+  if (btnAddEmojiSkin) {
+    btnAddEmojiSkin.addEventListener("click", addNewEmojiSkin);
+  }
 
   // Universal Accent Palette Chips
   document.querySelectorAll("#cyber-palette-section .palette-chip").forEach(chip => {

@@ -408,7 +408,7 @@ body.zen-mode .floating-score-tab {
 }
 
 /* ========================================================
-   PHONE ASSIST BALL (EDGE DOCKING & 50% HIDE)
+   PHONE ASSIST BALL (BEZEL DOCKING & 50% HIDE)
    ======================================================== */
 .assist-ball-wrapper {
   position: fixed;
@@ -442,15 +442,17 @@ body.zen-mode .floating-score-tab {
   transform: translate3d(8px, var(--assist-y, 45vh), 0) !important;
 }
 
+/* Completely Borderless Standalone Assist Ball Base */
 .assist-ball {
   width: 52px;
   height: 52px;
-  border-radius: 50%;
   cursor: grab;
   display: grid;
   place-items: center;
   user-select: none;
-  filter: drop-shadow(0 6px 16px rgba(0, 0, 0, 0.5));
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
 }
 .assist-ball:active { cursor: grabbing; }
 
@@ -465,46 +467,9 @@ body.zen-mode .floating-score-tab {
 .assist-svg-icon {
   width: 50px;
   height: 50px;
-  filter: drop-shadow(0 2px 5px rgba(0,0,0,0.3));
 }
 
-/* 1. VINYL SKIN ANIMATION */
-.assist-ball.skin-vinyl {
-  background: transparent;
-  border: none;
-  box-shadow: none;
-}
-.vinyl-disc-svg {
-  width: 50px;
-  height: 50px;
-  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.6));
-  transform-origin: center center;
-}
-.assist-ball.is-playing .vinyl-disc-svg {
-  animation: spin-vinyl 3s linear infinite;
-}
-@keyframes spin-vinyl {
-  to { transform: rotate(360deg); }
-}
-
-/* 2. CHROME DROPLET SKIN */
-.assist-ball.skin-chrome {
-  background: radial-gradient(circle at 35% 30%, #ffffff 0%, #cbd5e1 35%, #475569 75%, #0f172a 100%);
-  border: 1.5px solid rgba(255, 255, 255, 0.7);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.6), inset 0 -3px 8px rgba(0, 0, 0, 0.5), inset 0 3px 6px rgba(255, 255, 255, 0.8);
-}
-.chrome-fluid-icon {
-  font-size: 1.5rem;
-  color: #0f172a;
-  filter: drop-shadow(0 1px 2px rgba(255, 255, 255, 0.7));
-}
-
-/* 3. CHAI GLASS STEAM ANIMATION */
-.assist-ball.skin-chai {
-  background: transparent;
-  border: none;
-  box-shadow: none;
-}
+/* 1. CUTTING CHAI (RETRO) */
 .assist-ball.is-playing .chai-steam-path {
   animation: steamRise 1.8s ease-out infinite;
 }
@@ -514,42 +479,43 @@ body.zen-mode .floating-score-tab {
   100% { opacity: 0; transform: translateY(-8px) scaleX(1.3); }
 }
 
-/* 4. LIVE WAVEFORM BARS */
-.assist-ball.skin-waveform {
-  background: rgba(15, 20, 28, 0.85);
-  border: 1.5px solid var(--accent-primary);
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
-  box-shadow: 0 0 14px var(--accent-glow);
+/* 2. REALISTIC TWILIGHT CRESCENT (CALM 1 - MATCHING PHOTO) */
+.moon-svg {
+  filter: drop-shadow(0 0 10px rgba(254, 215, 170, 0.45));
 }
-.assist-waveform-bars {
-  display: flex;
-  align-items: center;
-  gap: 3.5px;
-  height: 22px;
+.assist-ball.is-playing .moon-crescent-path {
+  animation: moonSoftPulse 2.8s ease-in-out infinite alternate;
 }
-.assist-wave-bar {
-  width: 3.5px;
-  height: 6px;
-  background: var(--accent-primary);
-  border-radius: 4px;
-  box-shadow: 0 0 8px var(--accent-glow);
-  transition: height 0.2s ease;
-}
-.assist-ball.is-playing .assist-wave-bar:nth-child(1) { animation: wavePulse 0.6s ease-in-out infinite alternate; }
-.assist-ball.is-playing .assist-wave-bar:nth-child(2) { animation: wavePulse 0.8s ease-in-out infinite alternate 0.2s; }
-.assist-ball.is-playing .assist-wave-bar:nth-child(3) { animation: wavePulse 0.5s ease-in-out infinite alternate 0.4s; }
-.assist-ball.is-playing .assist-wave-bar:nth-child(4) { animation: wavePulse 0.7s ease-in-out infinite alternate 0.1s; }
-@keyframes wavePulse {
-  0% { height: 6px; }
-  100% { height: 20px; }
+@keyframes moonSoftPulse {
+  0% { filter: drop-shadow(0 0 4px rgba(254, 215, 170, 0.4)); opacity: 0.92; }
+  100% { filter: drop-shadow(0 0 14px rgba(254, 215, 170, 0.95)) drop-shadow(0 0 22px rgba(255, 241, 230, 0.6)); opacity: 1; }
 }
 
-/* 5. LO-FI CAT SKIN */
-.assist-ball.skin-cat {
-  background: transparent;
-  border: none;
-  box-shadow: none;
+/* 3. PURE STANDALONE ZEN LOTUS (CALM 2 - BORDERLESS) */
+.lotus-standalone-svg {
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.35));
+}
+.assist-ball.is-playing .lotus-flower-group {
+  animation: lotusBreathe 2.6s ease-in-out infinite alternate;
+}
+@keyframes lotusBreathe {
+  0% { transform: scale(0.95); filter: drop-shadow(0 0 3px rgba(192, 132, 252, 0.3)); }
+  100% { transform: scale(1.06); filter: drop-shadow(0 0 12px rgba(192, 132, 252, 0.75)); }
+}
+
+/* 4. HOLOGRAPHIC GLITCH PRISM / SHURIKEN (CYBER) */
+.prism-shuriken-svg {
+  filter: drop-shadow(0 0 8px rgba(0, 242, 254, 0.55)) drop-shadow(0 0 14px rgba(255, 0, 127, 0.45));
+}
+.assist-ball.is-playing .prism-group {
+  animation: prismSpinGlitch 3.6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+@keyframes prismSpinGlitch {
+  0% { transform: rotate(0deg) scale(1); filter: drop-shadow(0 0 8px #00f2fe) drop-shadow(0 0 14px #ff007f); }
+  25% { transform: rotate(90deg) scale(1.08); filter: drop-shadow(2px -2px 10px #ff007f) drop-shadow(-2px 2px 14px #00f2fe); }
+  50% { transform: rotate(180deg) scale(0.96); filter: drop-shadow(-1px 2px 8px #00f2fe) drop-shadow(1px -2px 16px #ff007f); }
+  75% { transform: rotate(270deg) scale(1.06); filter: drop-shadow(2px 1px 12px #ff007f) drop-shadow(-2px -1px 12px #00f2fe); }
+  100% { transform: rotate(360deg) scale(1); filter: drop-shadow(0 0 8px #00f2fe) drop-shadow(0 0 14px #ff007f); }
 }
 
 /* Assist Menu Popup */

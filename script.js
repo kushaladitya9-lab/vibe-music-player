@@ -183,7 +183,7 @@ let currentTab = "all";
 let currentAestheticMode = localStorage.getItem("vibe_aesthetic_mode") || "retro"; 
 let currentAccentHue = localStorage.getItem("vibe_accent_hue") || "gold"; 
 let controlsLayout = localStorage.getItem("vibe_controls_layout") || "bouncing"; 
-let assistSkin = localStorage.getItem("vibe_assist_skin") || "vinyl"; 
+let assistSkin = localStorage.getItem("vibe_assist_skin") || "chai"; 
 
 let currentBgIndex = localStorage.getItem("vibe_bg_idx") || "0";
 let customBgData = localStorage.getItem("vibe_custom_bg") || null;
@@ -433,12 +433,15 @@ function setAestheticEngine(targetMode) {
   if (targetMode === "cyber") {
     currentAccentHue = "cyan";
     applyBackground(4);
+    applyAssistSkin("prism"); // Auto-match 3D Holographic Glitch Prism
   } else if (targetMode === "calm") {
     currentAccentHue = "lavender";
     applyBackground(8);
+    applyAssistSkin("moon"); // Auto-match realistic photo twilight moon
   } else {
     currentAccentHue = "gold";
     applyBackground(0);
+    applyAssistSkin("chai"); // Auto-match cutting chai
   }
 
   applyAestheticEngine(targetMode, currentAccentHue);
@@ -451,7 +454,7 @@ function toggleAestheticMode() {
 }
 
 // ========================================================
-// 5 NEW AESTHETIC MUSIC-CENTRIC ASSIST BALL SKINS
+// 4 THEME-MATCHED ASSIST BALL SKINS
 // ========================================================
 function applyControlsLayout(layout) {
   controlsLayout = layout;
@@ -486,52 +489,8 @@ function applyAssistSkin(skin) {
   if (!assistBall || !assistSkinSlot) return;
   assistBall.className = `assist-ball skin-${skin}`;
 
-  if (skin === "vinyl") {
-    // 1. Mini Vinyl Record (Rotating concentric grooves)
-    assistSkinSlot.innerHTML = `
-      <svg viewBox="0 0 100 100" class="vinyl-disc-svg">
-        <circle cx="50" cy="50" r="48" fill="#121418" stroke="#252932" stroke-width="2"/>
-        <circle cx="50" cy="50" r="42" fill="none" stroke="#2a2e39" stroke-width="1.2" opacity="0.6"/>
-        <circle cx="50" cy="50" r="36" fill="none" stroke="#2a2e39" stroke-width="1.2" opacity="0.6"/>
-        <circle cx="50" cy="50" r="30" fill="none" stroke="#2a2e39" stroke-width="1.2" opacity="0.6"/>
-        <circle cx="50" cy="50" r="20" fill="var(--accent-primary)"/>
-        <circle cx="50" cy="50" r="6" fill="#000000"/>
-        <path d="M50 30 L50 34" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round"/>
-      </svg>
-    `;
-  } else if (skin === "cat") {
-    // 2. Lo-Fi Cozy Sleeping Cat
-    assistSkinSlot.innerHTML = `
-      <svg viewBox="0 0 100 100" class="assist-svg-icon">
-        <defs>
-          <linearGradient id="catGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stop-color="#ffffff"/>
-            <stop offset="100%" stop-color="#cbd5e1"/>
-          </linearGradient>
-        </defs>
-        <!-- Cat Ears -->
-        <polygon points="26,40 18,18 42,28" fill="#e2e8f0"/>
-        <polygon points="28,36 22,22 38,28" fill="#f472b6"/>
-        <polygon points="74,40 82,18 58,28" fill="#e2e8f0"/>
-        <polygon points="72,36 78,22 62,28" fill="#f472b6"/>
-        <!-- Cat Body & Head -->
-        <ellipse cx="50" cy="56" rx="38" ry="34" fill="url(#catGrad)"/>
-        <!-- Closed Peaceful Eyes -->
-        <path d="M32 54 Q40 60 44 54" stroke="#475569" stroke-width="3" stroke-linecap="round" fill="none"/>
-        <path d="M56 54 Q60 60 68 54" stroke="#475569" stroke-width="3" stroke-linecap="round" fill="none"/>
-        <!-- Cute Nose & Mouth -->
-        <polygon points="48,63 52,63 50,66" fill="#f472b6"/>
-        <path d="M47 67 Q50 70 53 67" stroke="#64748b" stroke-width="2" fill="none"/>
-        <!-- Soft Blush -->
-        <circle cx="28" cy="62" r="5" fill="#fbcfe8" opacity="0.7"/>
-        <circle cx="72" cy="62" r="5" fill="#fbcfe8" opacity="0.7"/>
-      </svg>
-    `;
-  } else if (skin === "chrome") {
-    // 3. Liquid Chrome Droplet
-    assistSkinSlot.innerHTML = `<i class="ri-drop-fill chrome-fluid-icon"></i>`;
-  } else if (skin === "chai") {
-    // 4. Cutting Chai Glass with Gentle Rising Steam
+  if (skin === "chai") {
+    // 1. Cutting Chai Glass with Rising Steam (Retro)
     assistSkinSlot.innerHTML = `
       <svg viewBox="0 0 100 100" class="assist-svg-icon">
         <defs>
@@ -540,31 +499,111 @@ function applyAssistSkin(skin) {
             <stop offset="100%" stop-color="#b33939"/>
           </linearGradient>
         </defs>
-        <!-- Rising Steam -->
         <path class="chai-steam-path" d="M42 24 Q38 18 44 12" stroke="rgba(255,255,255,0.7)" stroke-width="2.5" stroke-linecap="round" fill="none"/>
         <path class="chai-steam-path" d="M56 22 Q52 16 58 10" stroke="rgba(255,255,255,0.7)" stroke-width="2.5" stroke-linecap="round" fill="none"/>
-        <!-- Outer Glass Cup -->
         <polygon points="30,34 70,34 62,86 38,86" fill="rgba(255,255,255,0.18)" stroke="rgba(255,255,255,0.85)" stroke-width="2.5" stroke-linejoin="round"/>
-        <!-- Fluted Glass Vertical Ridges -->
         <line x1="44" y1="36" x2="44" y2="84" stroke="rgba(255,255,255,0.35)" stroke-width="1.5"/>
         <line x1="56" y1="36" x2="56" y2="84" stroke="rgba(255,255,255,0.35)" stroke-width="1.5"/>
-        <!-- Hot Amber Chai -->
         <polygon points="33,48 67,48 61,84 39,84" fill="url(#teaGrad)"/>
       </svg>
     `;
-  } else if (skin === "waveform") {
-    // 5. Live Equalizer Waveform Bars
+  } else if (skin === "moon") {
+    // 2. Realistic Twilight Crescent (Calm 1 - Exact matching photo)
     assistSkinSlot.innerHTML = `
-      <div class="assist-waveform-bars">
-        <div class="assist-wave-bar"></div>
-        <div class="assist-wave-bar"></div>
-        <div class="assist-wave-bar"></div>
-        <div class="assist-wave-bar"></div>
-      </div>
+      <svg viewBox="0 0 100 100" class="assist-svg-icon moon-svg">
+        <defs>
+          <filter id="moonGlowHaze" x="-30%" y="-30%" width="160%" height="160%">
+            <feGaussianBlur in="SourceGraphic" stdDeviation="3.5" result="blur"/>
+            <feMerge>
+              <feMergeNode in="blur"/>
+              <feMergeNode in="SourceGraphic"/>
+            </feMerge>
+          </filter>
+          <linearGradient id="crescentTone" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#ffffff"/>
+            <stop offset="50%" stop-color="#fff1e6"/>
+            <stop offset="100%" stop-color="#fed7aa"/>
+          </linearGradient>
+          <radialGradient id="earthshineBody" cx="44%" cy="50%" r="50%">
+            <stop offset="0%" stop-color="rgba(255, 255, 255, 0.16)"/>
+            <stop offset="65%" stop-color="rgba(215, 225, 245, 0.06)"/>
+            <stop offset="100%" stop-color="rgba(0, 0, 0, 0)"/>
+          </radialGradient>
+        </defs>
+        <!-- Subtle Natural Earthshine Silhouette (Unlit Moon Body) -->
+        <circle cx="50" cy="50" r="35" fill="url(#earthshineBody)" stroke="rgba(255,255,255,0.1)" stroke-width="0.8"/>
+        <!-- Radiant Glowing Crescent Edge -->
+        <path class="moon-crescent-path" d="M 48 16 A 34 34 0 0 1 80 64 A 36 36 0 0 0 48 16 Z" fill="url(#crescentTone)" filter="url(#moonGlowHaze)"/>
+        <path d="M 48 16 A 34 34 0 0 1 80 64 A 36 36 0 0 0 48 16 Z" fill="#ffffff" opacity="0.9"/>
+      </svg>
+    `;
+  } else if (skin === "lotus") {
+    // 3. Pure Standalone Zen Lotus (Calm 2 - Completely borderless)
+    assistSkinSlot.innerHTML = `
+      <svg viewBox="0 0 100 100" class="assist-svg-icon lotus-standalone-svg">
+        <defs>
+          <linearGradient id="lotusOuterGrad" x1="0%" y1="100%" x2="0%" y2="0%">
+            <stop offset="0%" stop-color="#c084fc"/>
+            <stop offset="100%" stop-color="#fdf4ff"/>
+          </linearGradient>
+          <linearGradient id="lotusInnerGrad" x1="0%" y1="100%" x2="0%" y2="0%">
+            <stop offset="0%" stop-color="#e879f9"/>
+            <stop offset="100%" stop-color="#ffffff"/>
+          </linearGradient>
+        </defs>
+        <g class="lotus-flower-group" style="transform-origin: 50px 65px;">
+          <!-- Wide Outer Petals -->
+          <path d="M50 78 C24 78, 12 56, 18 42 C24 30, 42 54, 50 78 Z" fill="url(#lotusOuterGrad)" opacity="0.85"/>
+          <path d="M50 78 C76 78, 88 56, 82 42 C76 30, 58 54, 50 78 Z" fill="url(#lotusOuterGrad)" opacity="0.85"/>
+          <!-- Inner Graceful Petals -->
+          <path d="M50 78 C30 72, 25 44, 38 32 C44 26, 48 56, 50 78 Z" fill="url(#lotusInnerGrad)" opacity="0.95"/>
+          <path d="M50 78 C70 72, 75 44, 62 32 C56 26, 52 56, 50 78 Z" fill="url(#lotusInnerGrad)" opacity="0.95"/>
+          <!-- Crown Petal -->
+          <path d="M50 78 C42 56, 40 22, 50 14 C60 22, 58 56, 50 78 Z" fill="#ffffff"/>
+          <path d="M50 78 C46 62, 45 32, 50 24 C55 32, 54 62, 50 78 Z" fill="url(#lotusInnerGrad)" opacity="0.75"/>
+          <!-- Soft Center Glow Dew -->
+          <circle cx="50" cy="58" r="3.5" fill="#fde047"/>
+        </g>
+      </svg>
+    `;
+  } else if (skin === "prism") {
+    // 4. Holographic Glitch Prism / Shuriken (Cyber)
+    assistSkinSlot.innerHTML = `
+      <svg viewBox="0 0 100 100" class="assist-svg-icon prism-shuriken-svg">
+        <defs>
+          <linearGradient id="prismCyan" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#00f2fe"/>
+            <stop offset="100%" stop-color="#0072ff"/>
+          </linearGradient>
+          <linearGradient id="prismMagenta" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#ff007f"/>
+            <stop offset="100%" stop-color="#7928ca"/>
+          </linearGradient>
+          <linearGradient id="prismWhite" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#ffffff"/>
+            <stop offset="100%" stop-color="#a5f3fc"/>
+          </linearGradient>
+        </defs>
+        <g class="prism-group" style="transform-origin: 50px 50px;">
+          <!-- 4 3D Faceted Points of Shuriken -->
+          <polygon points="50,10 50,50 36,36" fill="url(#prismCyan)"/>
+          <polygon points="50,10 64,36 50,50" fill="url(#prismWhite)" opacity="0.9"/>
+          
+          <polygon points="90,50 50,50 64,36" fill="url(#prismMagenta)"/>
+          <polygon points="90,50 64,64 50,50" fill="url(#prismCyan)" opacity="0.8"/>
+          
+          <polygon points="50,90 50,50 64,64" fill="url(#prismMagenta)"/>
+          <polygon points="50,90 36,64 50,50" fill="url(#prismWhite)" opacity="0.85"/>
+          
+          <polygon points="10,50 50,50 36,64" fill="url(#prismCyan)"/>
+          <polygon points="10,50 36,36 50,50" fill="url(#prismMagenta)" opacity="0.9"/>
+          <!-- Glowing Diamond Core -->
+          <polygon points="50,42 58,50 50,58 42,50" fill="#ffffff"/>
+        </g>
+      </svg>
     `;
   }
 
-  // Update playback animation state on current assist ball
   if (activeAudio) {
     assistBall.classList.toggle("is-playing", !activeAudio.paused);
   }
@@ -2308,7 +2347,7 @@ function setupListeners() {
   if (btnLayoutBouncing) btnLayoutBouncing.addEventListener("click", () => applyControlsLayout("bouncing"));
   if (btnLayoutAssist) btnLayoutAssist.addEventListener("click", () => applyControlsLayout("assist"));
 
-  // Assist Skin Selection
+  // Curated Assist Skin Selection
   document.querySelectorAll("#assist-skin-section .palette-chip").forEach(chip => {
     chip.addEventListener("click", () => {
       applyAssistSkin(chip.getAttribute("data-skin"));

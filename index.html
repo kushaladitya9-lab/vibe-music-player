@@ -4,9 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   
-  <title>Vibe Music Player - Aesthetic Music Experience</title>
-  <meta name="title" content="Vibe Music Player - Aesthetic Music Experience">
-  <meta name="description" content="Aesthetic Indian Tapri, Retro Lo-Fi, Cyber Neon, Calm, Minimal Dark and Clean Light music player.">
+  <title>Vibe Music Player - Aesthetic Lo-Fi, Retro, Cyber, Calm, Dark & Light</title>
+  <meta name="title" content="Vibe Music Player - Aesthetic Lo-Fi, Retro, Cyber, Calm, Dark & Light">
+  <meta name="description" content="Aesthetic Indian Tapri, Retro Lo-Fi, Cyber Neon, Calm, Minimal Dark and Clean Light music player with dynamic moods, rain sound synthesizer, zen mode, custom wallpapers, arcade game and cloud synced tracks.">
   <meta name="author" content="Aditya Kushal">
 
   <!-- Browser Tab Favicon -->
@@ -15,10 +15,10 @@
 
   <!-- PWA Setup -->
   <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#ffffff">
+  <meta name="theme-color" content="#000000">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Vibe Player">
   <link rel="apple-touch-icon" href="app-icon.png">
 
@@ -29,230 +29,46 @@
   <link href="https://cdn.jsdelivr.net/npm/remixicon@4.2.0/fonts/remixicon.css" rel="stylesheet"/>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
-<body class="theme-light accent-crimson mood-sunset view-library">
+<body class="theme-retro accent-gold mood-sunset">
 
-  <!-- Background Layer for Full Player -->
+  <!-- Background & Weather Layer -->
   <div class="app-background" id="app-background"></div>
   <div class="scrim-overlay"></div>
   <canvas id="weather-canvas"></canvas>
 
-  <!-- ========================================================
-       FRONT PAGE: MUSIC LIBRARY VIEW (FULLSCREEN ON LAPTOP)
-       ======================================================== -->
-  <div class="library-view-container" id="library-view">
-    
-    <!-- Top Header Bar -->
-    <header class="library-header">
-      <h1 class="library-logo">Music</h1>
-      <div class="library-header-actions">
-        <button class="lib-icon-btn" id="lib-search-toggle" title="Search Songs">
-          <i class="ri-search-line"></i>
-        </button>
-      </div>
-    </header>
-
-    <!-- Interactive Search Bar -->
-    <div class="library-search-wrap" id="library-search-wrap">
-      <i class="ri-search-2-line"></i>
-      <input type="text" id="library-search-input" placeholder="Search track or artist...">
-      <button class="clear-search-btn" id="clear-search-btn"><i class="ri-close-line"></i></button>
-    </div>
-
-    <!-- Navigation Tabs: Songs, Liked, Playlists -->
-    <nav class="library-tabs-nav">
-      <button class="lib-tab-btn active" data-tab="songs">Songs</button>
-      <button class="lib-tab-btn" data-tab="liked">Liked</button>
-      <button class="lib-tab-btn" data-tab="playlists">Playlists</button>
-      <div class="lib-tab-indicator" id="lib-tab-indicator"></div>
-    </nav>
-
-    <!-- Action Bar (Shuffle Pill + Song Count) -->
-    <div class="library-sub-bar">
-      <button class="lib-shuffle-pill" id="lib-shuffle-btn">
-        <i class="ri-shuffle-line"></i>
-        <span>Shuffle</span>
-      </button>
-      <span class="lib-songs-counter" id="lib-songs-counter">42 songs</span>
-    </div>
-
-    <!-- Scrollable Song List -->
-    <main class="library-song-list" id="library-song-list"></main>
-
-    <!-- Docked Mini-Player Bar (Tap to Expand to Main Player) -->
-    <aside class="mini-player-bar" id="mini-player">
-      <div class="mini-progress-track">
-        <div class="mini-progress-fill" id="mini-progress-fill"></div>
-      </div>
-
-      <div class="mini-player-body">
-        <div class="mini-cover-art" id="mini-cover-art">
-          <i class="ri-music-2-fill"></i>
-        </div>
-        <div class="mini-meta" id="mini-meta-trigger">
-          <div class="mini-title" id="mini-track-title">Loading Track...</div>
-          <div class="mini-artist" id="mini-track-artist">My Favourite Artist</div>
-        </div>
-        <div class="mini-controls">
-          <button class="mini-ctrl-btn" id="mini-play-btn" title="Play/Pause">
-            <i class="ri-play-fill" id="mini-play-icon"></i>
-          </button>
-          <button class="mini-ctrl-btn" id="mini-next-btn" title="Next Song">
-            <i class="ri-skip-forward-fill"></i>
-          </button>
-          <button class="mini-ctrl-btn" id="mini-queue-btn" title="Songs & Playlists">
-            <i class="ri-play-list-2-fill"></i>
-          </button>
-        </div>
-      </div>
-    </aside>
-
+  <!-- Top Action Container (Aesthetic Mode, Mood, Zen, Game, Sync & Minimize Arrow) -->
+  <div class="scene-switcher-container">
+    <button class="scene-btn mode-btn" id="mode-toggle-btn" title="Cycle Aesthetic Engine (Retro / Cyber / Calm / Dark / Light)">
+      <i class="ri-radio-2-line" id="mode-icon"></i>
+      <span id="mode-label">Retro</span>
+    </button>
+    <button class="scene-btn" id="mood-toggle-btn" title="Click to cycle Mood">
+      <i class="ri-sun-cloudy-line" id="mood-icon"></i>
+      <span id="mood-label">Sunset</span>
+    </button>
+    <button class="scene-btn zen-btn" id="zen-toggle-btn" title="Zen Mode (Hide UI) - Shortcut: Z">
+      <i class="ri-focus-3-line"></i>
+      <span>Zen</span>
+    </button>
+    <button class="scene-btn arcade-btn" id="arcade-toggle-btn" title="Arcade Pong Game Mode">
+      <i class="ri-gamepad-line"></i>
+      <span>Game</span>
+    </button>
+    <button class="scene-btn refresh-btn" id="app-refresh-btn" title="Check Updates & Sync App">
+      <i class="ri-refresh-line" id="refresh-icon"></i>
+    </button>
+    <button class="scene-btn minimize-btn" id="minimize-toggle-btn" title="Minimize to Mini Player">
+      <i class="ri-arrow-down-s-line" id="minimize-icon"></i>
+    </button>
   </div>
 
-  <!-- ========================================================
-       MAIN FULLSCREEN AESTHETIC PLAYER VIEW (PRELOADED WALLPAPERS)
-       ======================================================== -->
-  <div class="fullscreen-player-overlay" id="fullscreen-player">
-    
-    <!-- Top Action Container (Aesthetic Mode, Mood, Zen, Game & Collapse) -->
-    <div class="scene-switcher-container">
-      <button class="scene-btn collapse-btn" id="collapse-player-btn" title="Back to Music Library">
-        <i class="ri-arrow-down-s-line"></i>
-        <span>Library</span>
-      </button>
-      <button class="scene-btn mode-btn" id="mode-toggle-btn" title="Cycle Aesthetic Engine (Retro / Cyber / Calm / Dark / Light)">
-        <i class="ri-sun-fill" id="mode-icon"></i>
-        <span id="mode-label">Light</span>
-      </button>
-      <button class="scene-btn" id="mood-toggle-btn" title="Click to cycle Mood">
-        <i class="ri-sun-cloudy-line" id="mood-icon"></i>
-        <span id="mood-label">Sunset</span>
-      </button>
-      <button class="scene-btn zen-btn" id="zen-toggle-btn" title="Zen Mode (Hide UI) - Shortcut: Z">
-        <i class="ri-focus-3-line"></i>
-        <span>Zen</span>
-      </button>
-      <button class="scene-btn arcade-btn" id="arcade-toggle-btn" title="Arcade Pong Game Mode">
-        <i class="ri-gamepad-line"></i>
-        <span>Game</span>
-      </button>
-      <button class="scene-btn refresh-btn" id="app-refresh-btn" title="Check Updates & Sync App">
-        <i class="ri-refresh-line" id="refresh-icon"></i>
-      </button>
-    </div>
-
-    <!-- Freely Movable Floating Leaderboard Trophy Icon -->
-    <button class="floating-score-tab" id="floating-score-tab" title="View Leaderboard (Drag anywhere)">
-      <i class="ri-trophy-fill"></i>
-    </button>
-
-    <!-- 3 Transparent Glassmorphic Bouncing Balls -->
-    <button class="bounce-ball" id="open-drawer-btn" title="Open Songs & Playlists">
-      <i class="ri-play-list-2-fill"></i>
-      <span class="float-badge" id="track-count">0</span>
-    </button>
-
-    <button class="bounce-ball" id="open-theme-btn" title="Themes, Wallpapers & Rain Mixer">
-      <i class="ri-palette-line"></i>
-    </button>
-
-    <button class="bounce-ball" id="quick-upload-btn" title="Add Local Audio (Saved Permanently)">
-      <i class="ri-folder-music-fill"></i>
-    </button>
-    <input type="file" id="audio-file-input" accept="audio/*" multiple hidden>
-
-    <!-- Phone Assist Ball with Snapping & Quick Menu -->
-    <div class="assist-ball-wrapper" id="assist-ball-wrapper" style="display: none;">
-      <div class="assist-ball" id="assist-ball" title="Tap to expand / Drag to move">
-        <div class="assist-skin-slot" id="assist-skin-slot"></div>
-      </div>
-      
-      <!-- Assist Ball Quick Menu Popup -->
-      <div class="assist-radial-menu" id="assist-radial-menu">
-        <button class="assist-action-btn" id="assist-btn-songs" title="Songs & Playlists">
-          <i class="ri-play-list-2-fill"></i>
-          <span>Songs</span>
-        </button>
-        <button class="assist-action-btn" id="assist-btn-theme" title="Aesthetic Studio">
-          <i class="ri-palette-line"></i>
-          <span>Studio</span>
-        </button>
-        <button class="assist-action-btn" id="assist-btn-upload" title="Upload Audio">
-          <i class="ri-folder-music-fill"></i>
-          <span>Upload</span>
-        </button>
-        <button class="assist-action-btn" id="assist-btn-switch-layout" title="Switch to Bouncing Balls">
-          <i class="ri-circle-line"></i>
-          <span>Balls</span>
-        </button>
-      </div>
-    </div>
-
-    <!-- Transparent Draggable Volume Pill -->
-    <div class="draggable-volume-box" id="draggable-volume" title="Drag anywhere!">
-      <i class="ri-volume-up-line" id="volume-icon" title="Mute/Unmute"></i>
-      <input type="range" id="volume-slider" min="0" max="1" step="0.01" value="1">
-    </div>
-
-    <!-- Main Aesthetic Music Player Content -->
-    <main class="player-container" id="player-container">
-      <div class="player-content">
-        
-        <!-- Track Meta Section -->
-        <section class="track-meta">
-          <div class="title-like-row">
-            <h1 class="track-title" id="track-title">Loading Track...</h1>
-            <button class="heart-btn" id="main-heart-btn" title="Like this track">
-              <i class="ri-heart-line" id="main-heart-icon"></i>
-            </button>
-            <button class="share-btn" id="main-share-btn" title="Share track">
-              <i class="ri-share-forward-line" id="main-share-icon"></i>
-            </button>
-          </div>
-          <p class="track-artist" id="track-artist">My Favourite Artist</p>
-        </section>
-
-        <!-- Progress / Seek Bar Section -->
-        <section class="progress-section">
-          <div class="seek-container" id="seek-container">
-            <div class="seek-bar" id="seek-bar">
-              <div class="seek-progress" id="seek-progress"></div>
-              <div class="seek-thumb" id="seek-thumb"></div>
-            </div>
-          </div>
-          <div class="time-display">
-            <span id="current-time">0:00</span>
-            <span id="duration-time">0:00</span>
-          </div>
-        </section>
-
-        <!-- Music Controls Section -->
-        <section class="controls-section" id="controls-section">
-          <button class="ctrl-btn icon-only" id="shuffle-btn" title="Shuffle">
-            <i class="ri-shuffle-line"></i>
-          </button>
-          <button class="ctrl-btn icon-only" id="prev-btn" title="Previous">
-            <i class="ri-skip-back-fill"></i>
-          </button>
-          <button class="ctrl-btn play-pause-btn" id="play-btn" title="Play/Pause">
-            <i class="ri-play-fill" id="play-icon"></i>
-          </button>
-          <button class="ctrl-btn icon-only" id="next-btn" title="Next">
-            <i class="ri-skip-forward-fill"></i>
-          </button>
-          <button class="ctrl-btn icon-only" id="repeat-btn" title="Repeat">
-            <i class="ri-repeat-line"></i>
-          </button>
-        </section>
-
-      </div>
-    </main>
-  </div>
-
-  <!-- Shared Backdrop for Drawers & Sidebar -->
-  <div class="drawer-backdrop" id="drawer-backdrop"></div>
-  <div class="leaderboard-backdrop" id="leaderboard-backdrop"></div>
+  <!-- Freely Movable Floating Leaderboard Trophy Icon -->
+  <button class="floating-score-tab" id="floating-score-tab" title="View Leaderboard (Drag anywhere)">
+    <i class="ri-trophy-fill"></i>
+  </button>
 
   <!-- Sliding Leaderboard Sidebar Panel -->
+  <div class="leaderboard-backdrop" id="leaderboard-backdrop"></div>
   <aside class="leaderboard-sidebar" id="leaderboard-sidebar">
     <div class="leaderboard-header">
       <div style="display: flex; align-items: center; gap: 8px;">
@@ -285,9 +101,140 @@
     </div>
   </aside>
 
-  <!-- 1. SONGS & PLAYLIST DRAWER -->
+  <!-- 3 Transparent Glassmorphic Bouncing Balls -->
+  <button class="bounce-ball" id="open-drawer-btn" title="Open Songs & Playlists">
+    <i class="ri-play-list-2-fill"></i>
+    <span class="float-badge" id="track-count">0</span>
+  </button>
+
+  <button class="bounce-ball" id="open-theme-btn" title="Themes, Wallpapers & Rain Mixer">
+    <i class="ri-palette-line"></i>
+  </button>
+
+  <button class="bounce-ball" id="quick-upload-btn" title="Add Local Audio (Saved Permanently)">
+    <i class="ri-folder-music-fill"></i>
+  </button>
+  <input type="file" id="audio-file-input" accept="audio/*" multiple hidden>
+
+  <!-- Phone Assist Ball -->
+  <div class="assist-ball-wrapper" id="assist-ball-wrapper" style="display: none;">
+    <div class="assist-ball" id="assist-ball" title="Tap to expand / Drag to move">
+      <div class="assist-skin-slot" id="assist-skin-slot"></div>
+    </div>
+    
+    <div class="assist-radial-menu" id="assist-radial-menu">
+      <button class="assist-action-btn" id="assist-btn-songs" title="Songs & Playlists">
+        <i class="ri-play-list-2-fill"></i>
+        <span>Songs</span>
+      </button>
+      <button class="assist-action-btn" id="assist-btn-theme" title="Aesthetic Studio">
+        <i class="ri-palette-line"></i>
+        <span>Studio</span>
+      </button>
+      <button class="assist-action-btn" id="assist-btn-upload" title="Upload Audio">
+        <i class="ri-folder-music-fill"></i>
+        <span>Upload</span>
+      </button>
+      <button class="assist-action-btn" id="assist-btn-switch-layout" title="Switch to Bouncing Balls">
+        <i class="ri-circle-line"></i>
+        <span>Balls</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Transparent Draggable Volume Pill -->
+  <div class="draggable-volume-box" id="draggable-volume" title="Drag anywhere!">
+    <i class="ri-volume-up-line" id="volume-icon" title="Mute/Unmute"></i>
+    <input type="range" id="volume-slider" min="0" max="1" step="0.01" value="1">
+  </div>
+
+  <!-- Main Player Container -->
+  <main class="player-container" id="player-container">
+    <div class="player-content">
+      
+      <!-- Track Meta Section -->
+      <section class="track-meta">
+        <div class="title-like-row">
+          <h1 class="track-title" id="track-title">Loading Track...</h1>
+          <button class="heart-btn" id="main-heart-btn" title="Like this track">
+            <i class="ri-heart-line" id="main-heart-icon"></i>
+          </button>
+          <button class="share-btn" id="main-share-btn" title="Share track">
+            <i class="ri-share-forward-line" id="main-share-icon"></i>
+          </button>
+        </div>
+        <p class="track-artist" id="track-artist">My Favourite Artist</p>
+      </section>
+
+      <!-- Progress / Seek Bar Section -->
+      <section class="progress-section">
+        <div class="seek-container" id="seek-container">
+          <div class="seek-bar" id="seek-bar">
+            <div class="seek-progress" id="seek-progress"></div>
+            <div class="seek-thumb" id="seek-thumb"></div>
+          </div>
+        </div>
+        <div class="time-display">
+          <span id="current-time">0:00</span>
+          <span id="duration-time">0:00</span>
+        </div>
+      </section>
+
+      <!-- Music Controls Section -->
+      <section class="controls-section" id="controls-section">
+        <button class="ctrl-btn icon-only" id="shuffle-btn" title="Shuffle">
+          <i class="ri-shuffle-line"></i>
+        </button>
+        <button class="ctrl-btn icon-only" id="prev-btn" title="Previous">
+          <i class="ri-skip-back-fill"></i>
+        </button>
+        <button class="ctrl-btn play-pause-btn" id="play-btn" title="Play/Pause">
+          <i class="ri-play-fill" id="play-icon"></i>
+        </button>
+        <button class="ctrl-btn icon-only" id="next-btn" title="Next">
+          <i class="ri-skip-forward-fill"></i>
+        </button>
+        <button class="ctrl-btn icon-only" id="repeat-btn" title="Repeat">
+          <i class="ri-repeat-line"></i>
+        </button>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- ========================================================
+       NEW BOTTOM MINI PLAYER BAR (ACTIVATED ON DOWNWARD ARROW)
+       ======================================================== -->
+  <div class="mini-player-bar" id="mini-player-bar">
+    <div class="mini-seek-bar" id="mini-seek-container">
+      <div class="mini-seek-progress" id="mini-seek-progress"></div>
+    </div>
+    <div class="mini-player-content">
+      <div class="mini-track-info" id="mini-expand-trigger">
+        <div class="mini-title" id="mini-title">Loading Track...</div>
+        <div class="mini-artist" id="mini-artist">Artist Name</div>
+      </div>
+      <div class="mini-controls">
+        <button class="mini-ctrl-btn" id="mini-like-btn" title="Like track">
+          <i class="ri-heart-line" id="mini-heart-icon"></i>
+        </button>
+        <button class="mini-ctrl-btn play-btn" id="mini-play-btn" title="Play/Pause">
+          <i class="ri-play-fill" id="mini-play-icon"></i>
+        </button>
+        <button class="mini-ctrl-btn" id="mini-next-btn" title="Next track">
+          <i class="ri-skip-forward-fill"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Shared Backdrop for Drawers -->
+  <div class="drawer-backdrop" id="drawer-backdrop"></div>
+
+  <!-- 1. SONGS & PLAYLIST DRAWER (BALL 1) -->
   <aside class="playlist-drawer" id="playlist-drawer">
     <div class="drawer-handle"></div>
+    
     <div class="drawer-header">
       <div>
         <h3>Songs & Playlists</h3>
@@ -298,16 +245,19 @@
       </button>
     </div>
 
+    <!-- Search Bar -->
     <div class="search-box-container">
       <i class="ri-search-2-line search-icon"></i>
       <input type="text" id="playlist-search-input" placeholder="Search track or artist...">
     </div>
 
+    <!-- Playlist Filter Tabs -->
     <div class="playlist-tabs">
       <button class="tab-btn active" id="tab-all-btn">All Tracks</button>
       <button class="tab-btn" id="tab-liked-btn"><i class="ri-heart-fill"></i> Liked (<span id="liked-count">0</span>)</button>
     </div>
 
+    <!-- Dual Upload Cards -->
     <div class="dual-upload-container">
       <label for="main-audio-input" class="upload-action-card global" id="btn-upload-main">
         <i class="ri-cloud-upload-fill"></i>
@@ -328,12 +278,14 @@
       <input type="file" id="drawer-audio-file-input" accept="audio/*" multiple hidden>
     </div>
 
+    <!-- Scrollable Songs List -->
     <div class="playlist-scroll-list" id="playlist-scroll-list"></div>
   </aside>
 
-  <!-- 2. THEME & ATMOSPHERE DRAWER -->
+  <!-- 2. THEME & ATMOSPHERE DRAWER (BALL 2) -->
   <aside class="playlist-drawer theme-drawer" id="theme-drawer">
     <div class="drawer-handle"></div>
+    
     <div class="drawer-header">
       <div>
         <h3>Aesthetic Studio</h3>
@@ -344,19 +296,19 @@
       </button>
     </div>
 
-    <!-- 5-Way Mode Switcher -->
+    <!-- 5-Way Aesthetic Mode Selection -->
     <div class="custom-picker-section">
       <span class="picker-title"><i class="ri-magic-line"></i> Aesthetic Engine:</span>
       <div class="picker-grid engine-grid-5">
-        <button class="grid-btn engine-btn" id="btn-engine-retro"><i class="ri-radio-2-line"></i> Retro</button>
+        <button class="grid-btn engine-btn active" id="btn-engine-retro"><i class="ri-radio-2-line"></i> Retro</button>
         <button class="grid-btn engine-btn" id="btn-engine-cyber"><i class="ri-flashlight-line"></i> Cyber</button>
         <button class="grid-btn engine-btn" id="btn-engine-calm"><i class="ri-leaf-line"></i> Calm</button>
         <button class="grid-btn engine-btn" id="btn-engine-dark"><i class="ri-moon-fill"></i> Dark</button>
-        <button class="grid-btn engine-btn active" id="btn-engine-light"><i class="ri-sun-fill"></i> Light</button>
+        <button class="grid-btn engine-btn" id="btn-engine-light"><i class="ri-sun-fill"></i> Light</button>
       </div>
     </div>
 
-    <!-- UI Controls Layout Mode -->
+    <!-- UI Controls Layout Mode (Bouncing Balls vs Assist Ball) -->
     <div class="custom-picker-section">
       <span class="picker-title"><i class="ri-layout-masonry-line"></i> UI Controls Layout:</span>
       <div class="picker-grid">
@@ -365,7 +317,7 @@
       </div>
     </div>
 
-    <!-- Assist Ball Skins -->
+    <!-- Assist Ball Skins + Custom Emoji Creator Section -->
     <div class="custom-picker-section" id="assist-skin-section">
       <div style="display: flex; justify-content: space-between; align-items: center;">
         <span class="picker-title"><i class="ri-t-shirt-line"></i> Assist Ball Skin:</span>
@@ -378,10 +330,10 @@
     <div class="custom-picker-section" id="cyber-palette-section">
       <span class="picker-title"><i class="ri-contrast-drop-2-line"></i> Accent Hue Glow:</span>
       <div class="palette-chips-row">
-        <button class="palette-chip" data-accent="gold"><span class="chip-dot dot-gold"></span> Amber</button>
-        <button class="palette-chip" data-accent="lemon"><span class="chip-dot dot-lemon"></span> Lemon</button>
+        <button class="palette-chip active" data-accent="gold"><span class="chip-dot dot-gold"></span> Amber</button>
+        <button class="palette-chip" data-accent="lemon"><span class="chip-dot dot-lemon"></span> Honey Lemon</button>
         <button class="palette-chip" data-accent="silver"><span class="chip-dot dot-silver"></span> Titanium</button>
-        <button class="palette-chip active" data-accent="crimson"><span class="chip-dot dot-crimson"></span> Ruby Red</button>
+        <button class="palette-chip" data-accent="crimson"><span class="chip-dot dot-crimson"></span> Ruby Red</button>
         <button class="palette-chip" data-accent="cyan"><span class="chip-dot dot-cyan"></span> Cyan</button>
         <button class="palette-chip" data-accent="magenta"><span class="chip-dot dot-magenta"></span> Magenta</button>
         <button class="palette-chip" data-accent="emerald"><span class="chip-dot dot-emerald"></span> Emerald</button>
@@ -390,7 +342,7 @@
       </div>
     </div>
 
-    <!-- Wallpapers Grid -->
+    <!-- All 12 Wallpapers -->
     <div class="custom-picker-section">
       <span class="picker-title"><i class="ri-image-2-line"></i> Wallpaper Background:</span>
       <div class="picker-grid wallpaper-grid">

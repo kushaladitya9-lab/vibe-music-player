@@ -24,7 +24,7 @@ function getOrCreateDeviceId() {
 }
 const DEVICE_ID = getOrCreateDeviceId();
 
-// All 42 Built-in Tracks
+// Built-in Tracks
 const baseTracks = [
   { id: "s1", title: "Chala Jata Hoon", artist: "", src: "song1.mp3" },
   { id: "s2", title: "Tera Mera Pyar Amar", artist: "", src: "song2.mp3" },
@@ -72,6 +72,7 @@ const baseTracks = [
 
 const FALLBACK_ARTIST = "My Favourite Artist";
 
+// All 12 Wallpapers
 const allWallpapers = [
   { name: "Retro 1", desktop: "bg1-desktop.png", mobile: "bg1-mobile.png" },
   { name: "Retro 2", desktop: "bg2-desktop.png", mobile: "bg2-mobile.png" },
@@ -102,7 +103,7 @@ const defaultSkins = [
 ];
 
 // ========================================================
-// 2. INDEXEDDB ENGINE
+// 2. INDEXEDDB ENGINE (LOCAL AUDIO STORAGE)
 // ========================================================
 const IDB_NAME = "VibeMusicDB";
 const IDB_VERSION = 1;
@@ -132,7 +133,9 @@ async function saveLocalTrackToDB(track) {
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
     });
-  } catch (err) { console.warn("IDB save error:", err); }
+  } catch (err) {
+    console.warn("IndexedDB save error:", err);
+  }
 }
 
 async function getLocalTracksFromDB() {
@@ -145,7 +148,10 @@ async function getLocalTracksFromDB() {
       req.onsuccess = () => resolve(req.result || []);
       req.onerror = () => reject(req.error);
     });
-  } catch (err) { return []; }
+  } catch (err) {
+    console.warn("IndexedDB read error:", err);
+    return [];
+  }
 }
 
 async function deleteLocalTrackFromDB(id) {
@@ -158,7 +164,9 @@ async function deleteLocalTrackFromDB(id) {
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
     });
-  } catch (err) { console.warn("IDB delete error:", err); }
+  } catch (err) {
+    console.warn("IndexedDB delete error:", err);
+  }
 }
 
 // State Management
@@ -170,20 +178,18 @@ let currentTrackIndex = 0;
 let isShuffle = false;
 let isRepeat = false;
 let isZenMode = false;
+let isMinimized = false;
 let isFading = false;
 let wakeLock = null;
 
+// Dual Audio Engine
 let audioA, audioB;
 let activeAudio, standbyAudio;
 let nextPreloadedIndex = -1;
 
-// View state
-let currentView = "library"; 
-let activeLibTab = "songs"; // 'songs', 'liked', 'playlists'
-
-// Default to Light Mode
-let currentAestheticMode = localStorage.getItem("vibe_aesthetic_mode") || "light"; 
-let currentAccentHue = localStorage.getItem("vibe_accent_hue") || "crimson"; 
+let currentTab = "all"; 
+let currentAestheticMode = localStorage.getItem("vibe_aesthetic_mode") || "retro"; 
+let currentAccentHue = localStorage.getItem("vibe_accent_hue") || "gold"; 
 let controlsLayout = localStorage.getItem("vibe_controls_layout") || "bouncing"; 
 let assistSkin = localStorage.getItem("vibe_assist_skin") || "chai"; 
 let customAssistSkins = JSON.parse(localStorage.getItem("vibe_custom_assist_skins") || "[]");
@@ -210,30 +216,29 @@ let moodToggleBtn, moodIcon, moodLabel, zenToggleBtn, arcadeToggleBtn, appRefres
 let searchInput, tabAllBtn, tabLikedBtn, rainSlider;
 let volumeSlider, volumeIcon, draggableVolume;
 let customBgInput, customBgLabel, customBgText;
-let playerContainer, controlsSection, collapsePlayerBtn;
+let playerContainer, controlsSection;
 
-// Front Page DOM
-let libraryView, librarySongList, librarySearchWrap, librarySearchInput, libSearchToggle, clearSearchBtn;
-let libSongsCounter, libShuffleBtn, libTabIndicator;
-let miniPlayer, miniProgressFill, miniCoverArt, miniTrackTitle, miniTrackArtist, miniPlayBtn, miniPlayIcon, miniNextBtn, miniQueueBtn;
-
-// Engine Switchers
+// Theme & Mode Switcher DOM
 let modeToggleBtn, modeIcon, modeLabel;
 let btnEngineRetro, btnEngineCyber, btnEngineCalm, btnEngineDark, btnEngineLight;
 let btnLayoutBouncing, btnLayoutAssist, assistSkinSection, assistChipsRow, btnAddEmojiSkin;
 
-// Leaderboard
+// Minimize / Mini Player DOM
+let minimizeToggleBtn, minimizeIcon, miniPlayerBar;
+let miniTitle, miniArtist, miniPlayBtn, miniPlayIcon, miniNextBtn, miniLikeBtn, miniHeartIcon, miniExpandTrigger, miniSeekContainer, miniSeekProgress;
+
+// Leaderboard Elements
 let floatingScoreTab, leaderboardBackdrop, leaderboardSidebar;
 let sidebarGlobalScore, sidebarGlobalNick, sidebarPersonalScore, sidebarPersonalNick;
 let sidebarNickInput, sidebarSaveNickBtn;
 
-// Bouncing & Assist Ball
+// Bouncing Balls & Assist Ball
 let btnDrawer, btnTheme, btnUpload;
 let balls = [];
 let assistBallWrapper, assistBall, assistSkinSlot, assistRadialMenu;
 let assistIdleTimer = null;
 
-// Arcade
+// Arcade State
 let isArcadeMode = false;
 let arcadeScore = 0;
 let arcadeLevel = 1;
@@ -256,7 +261,6 @@ async function initPlayer() {
   activeAudio = audioA;
   standbyAudio = audioB;
 
-  // Full Player DOM
   trackTitle = document.getElementById("track-title");
   trackArtist = document.getElementById("track-artist");
   controlsSection = document.getElementById("controls-section");
@@ -277,7 +281,6 @@ async function initPlayer() {
   draggableVolume = document.getElementById("draggable-volume");
   volumeSlider = document.getElementById("volume-slider");
   volumeIcon = document.getElementById("volume-icon");
-  collapsePlayerBtn = document.getElementById("collapse-player-btn");
 
   drawerBackdrop = document.getElementById("drawer-backdrop");
   playlistDrawer = document.getElementById("playlist-drawer");
@@ -290,29 +293,6 @@ async function initPlayer() {
   mainHeartIcon = document.getElementById("main-heart-icon");
   mainShareBtn = document.getElementById("main-share-btn");
 
-  // Front Page DOM
-  libraryView = document.getElementById("library-view");
-  librarySongList = document.getElementById("library-song-list");
-  librarySearchWrap = document.getElementById("library-search-wrap");
-  librarySearchInput = document.getElementById("library-search-input");
-  libSearchToggle = document.getElementById("lib-search-toggle");
-  clearSearchBtn = document.getElementById("clear-search-btn");
-  libSongsCounter = document.getElementById("lib-songs-counter");
-  libShuffleBtn = document.getElementById("lib-shuffle-btn");
-  libTabIndicator = document.getElementById("lib-tab-indicator");
-
-  // Mini-Player DOM
-  miniPlayer = document.getElementById("mini-player");
-  miniProgressFill = document.getElementById("mini-progress-fill");
-  miniCoverArt = document.getElementById("mini-cover-art");
-  miniTrackTitle = document.getElementById("mini-track-title");
-  miniTrackArtist = document.getElementById("mini-track-artist");
-  miniPlayBtn = document.getElementById("mini-play-btn");
-  miniPlayIcon = document.getElementById("mini-play-icon");
-  miniNextBtn = document.getElementById("mini-next-btn");
-  miniQueueBtn = document.getElementById("mini-queue-btn");
-
-  // Engine Switchers (Only inside main player)
   modeToggleBtn = document.getElementById("mode-toggle-btn");
   modeIcon = document.getElementById("mode-icon");
   modeLabel = document.getElementById("mode-label");
@@ -327,6 +307,20 @@ async function initPlayer() {
   assistSkinSection = document.getElementById("assist-skin-section");
   assistChipsRow = document.getElementById("assist-chips-row");
   btnAddEmojiSkin = document.getElementById("btn-add-emoji-skin");
+
+  minimizeToggleBtn = document.getElementById("minimize-toggle-btn");
+  minimizeIcon = document.getElementById("minimize-icon");
+  miniPlayerBar = document.getElementById("mini-player-bar");
+  miniTitle = document.getElementById("mini-title");
+  miniArtist = document.getElementById("mini-artist");
+  miniPlayBtn = document.getElementById("mini-play-btn");
+  miniPlayIcon = document.getElementById("mini-play-icon");
+  miniNextBtn = document.getElementById("mini-next-btn");
+  miniLikeBtn = document.getElementById("mini-like-btn");
+  miniHeartIcon = document.getElementById("mini-heart-icon");
+  miniExpandTrigger = document.getElementById("mini-expand-trigger");
+  miniSeekContainer = document.getElementById("mini-seek-container");
+  miniSeekProgress = document.getElementById("mini-seek-progress");
 
   moodToggleBtn = document.getElementById("mood-toggle-btn");
   moodIcon = document.getElementById("mood-icon");
@@ -371,13 +365,14 @@ async function initPlayer() {
   sidebarNickInput = document.getElementById("sidebar-nick-input");
   sidebarSaveNickBtn = document.getElementById("sidebar-save-nick-btn");
 
-  // Apply saved setup
   applyAestheticEngine(currentAestheticMode, currentAccentHue);
   applyControlsLayout(controlsLayout);
   renderAssistSkinChips();
   applyAssistSkin(assistSkin);
 
-  if (currentBgIndex === "custom" && customBgData) {
+  if (currentAestheticMode === "dark" || currentAestheticMode === "light") {
+    document.body.classList.remove("canvas-photo");
+  } else if (currentBgIndex === "custom" && customBgData) {
     applyCustomBackground(customBgData);
   } else {
     applyBackground(parseInt(currentBgIndex) || 0);
@@ -386,27 +381,14 @@ async function initPlayer() {
   applyMood(currentMoodIndex, false);
   updateLikedCount();
   
-  // 1. Instantly render initial base tracks (No 0-songs lag!)
+  await loadSavedLocalSongs();
+  await fetchSupabaseSongs();
   rebuildPlaylist();
+
   if (playlist.length > 0) {
     currentTrackIndex = Math.floor(Math.random() * playlist.length);
     loadTrack(currentTrackIndex);
   }
-  renderLibrarySongs();
-  updateMiniPlayerUI();
-
-  // 2. Fetch local storage & Supabase asynchronously without blocking UI
-  loadSavedLocalSongs().then(() => {
-    rebuildPlaylist();
-    renderLibrarySongs();
-    updateMiniPlayerUI();
-  });
-
-  fetchSupabaseSongs().then(() => {
-    rebuildPlaylist();
-    renderLibrarySongs();
-    updateMiniPlayerUI();
-  });
 
   setupListeners();
   setupMediaSession();
@@ -422,33 +404,28 @@ async function initPlayer() {
 
   await fetchGlobalHighScore();
   updateLeaderboardUI();
-  updateLibTabIndicator();
 
   attemptAutoplay();
 }
 
-// ========================================================
-// VIEW CONTROLLER
-// ========================================================
-function openFullPlayer() {
-  currentView = "full";
-  document.body.classList.remove("view-library");
-  document.body.classList.add("view-full-player");
-  if (controlsLayout === "bouncing") {
-    requestAnimationFrame(updateNormalPhysics);
+async function loadSavedLocalSongs() {
+  const dbTracks = await getLocalTracksFromDB();
+  if (dbTracks && dbTracks.length > 0) {
+    localTracks = dbTracks.map(item => {
+      const blobUrl = URL.createObjectURL(item.blob);
+      return {
+        id: item.id,
+        title: item.title,
+        artist: item.artist || FALLBACK_ARTIST,
+        src: blobUrl,
+        isLocal: true
+      };
+    });
   }
 }
 
-function collapseToLibrary() {
-  currentView = "library";
-  document.body.classList.remove("view-full-player");
-  document.body.classList.add("view-library");
-  renderLibrarySongs();
-  updateLibTabIndicator();
-}
-
 // ========================================================
-// 5-WAY AESTHETIC ENGINE (MODE CHANGING ONLY ON MAIN PAGE)
+// 5-WAY AESTHETIC ENGINE
 // ========================================================
 function applyAestheticEngine(mode, accent = "gold") {
   currentAestheticMode = mode;
@@ -463,24 +440,11 @@ function applyAestheticEngine(mode, accent = "gold") {
   );
   document.body.classList.add(`theme-${mode}`, `accent-${accent}`);
 
-  const modeLabels = {
-    retro: "Retro",
-    cyber: "Cyber",
-    calm: "Calm",
-    dark: "Dark",
-    light: "Light"
-  };
+  const modeLabels = { retro: "Retro", cyber: "Cyber", calm: "Calm", dark: "Dark", light: "Light" };
+  const modeIcons = { retro: "ri-radio-2-line", cyber: "ri-flashlight-line", calm: "ri-leaf-line", dark: "ri-moon-fill", light: "ri-sun-fill" };
 
-  const modeIcons = {
-    retro: "ri-radio-2-line",
-    cyber: "ri-flashlight-line",
-    calm: "ri-leaf-line",
-    dark: "ri-moon-fill",
-    light: "ri-sun-fill"
-  };
-
-  if (modeLabel) modeLabel.textContent = modeLabels[mode] || "Light";
-  if (modeIcon) modeIcon.className = modeIcons[mode] || "ri-sun-fill";
+  if (modeLabel) modeLabel.textContent = modeLabels[mode] || "Retro";
+  if (modeIcon) modeIcon.className = modeIcons[mode] || "ri-radio-2-line";
 
   if (btnEngineRetro) btnEngineRetro.classList.toggle("active", mode === "retro");
   if (btnEngineCyber) btnEngineCyber.classList.toggle("active", mode === "cyber");
@@ -499,26 +463,28 @@ function setAestheticEngine(targetMode) {
 
   if (targetMode === "dark") {
     currentAccentHue = "silver";
-    applyBackground(7);
+    document.body.classList.remove("canvas-photo");
   } else if (targetMode === "light") {
-    currentAccentHue = "crimson";
-    applyBackground(0);
+    currentAccentHue = "lemon";
+    document.body.classList.remove("canvas-photo");
   } else if (targetMode === "cyber") {
     currentAccentHue = "cyan";
+    document.body.classList.add("canvas-photo");
     applyBackground(4);
     applyAssistSkin("cassette");
   } else if (targetMode === "calm") {
     currentAccentHue = "lavender";
+    document.body.classList.add("canvas-photo");
     applyBackground(8);
     applyAssistSkin("sakura");
   } else {
     currentAccentHue = "gold";
+    document.body.classList.add("canvas-photo");
     applyBackground(0);
     applyAssistSkin("chai");
   }
 
   applyAestheticEngine(targetMode, currentAccentHue);
-  renderLibrarySongs();
 }
 
 function toggleAestheticMode() {
@@ -529,102 +495,18 @@ function toggleAestheticMode() {
 }
 
 // ========================================================
-// FRONT PAGE LIBRARY (SONGS, LIKED, PLAYLISTS ONLY)
+// MINI PLAYER TOGGLE (DOWNWARD / UPWARD ARROW)
 // ========================================================
-function renderLibrarySongs() {
-  if (!librarySongList) return;
-  librarySongList.innerHTML = "";
+function toggleMinimizePlayer() {
+  isMinimized = !isMinimized;
+  document.body.classList.toggle("minimized-mode", isMinimized);
+  if (miniPlayerBar) miniPlayerBar.classList.toggle("active", isMinimized);
+  if (minimizeIcon) minimizeIcon.className = isMinimized ? "ri-arrow-up-s-line" : "ri-arrow-down-s-line";
+  if (minimizeToggleBtn) minimizeToggleBtn.title = isMinimized ? "Expand Player" : "Minimize to Mini Player";
 
-  const query = librarySearchInput ? librarySearchInput.value.toLowerCase().trim() : "";
-
-  let targetList = [...playlist];
-
-  if (activeLibTab === "liked") {
-    targetList = targetList.filter(t => likedTrackIds.includes(t.id));
-  } else if (activeLibTab === "playlists") {
-    // Show custom playlists or cloud library tracks
-    targetList = targetList.filter(t => t.id.startsWith("sb_") || t.isLocal);
-  }
-
-  if (query) {
-    targetList = targetList.filter(t => 
-      t.title.toLowerCase().includes(query) || (t.artist || "").toLowerCase().includes(query)
-    );
-  }
-
-  if (libSongsCounter) {
-    libSongsCounter.textContent = `${targetList.length} songs`;
-  }
-
-  if (targetList.length === 0) {
-    const emptyMsg = document.createElement("div");
-    emptyMsg.style.cssText = "text-align: center; color: var(--lib-subtext); padding: 40px 10px; font-size: 0.95rem; font-weight: 600;";
-    emptyMsg.textContent = activeLibTab === "liked" ? "No liked songs yet. Tap heart on any song to add!" : "No songs found.";
-    librarySongList.appendChild(emptyMsg);
-    return;
-  }
-
-  targetList.forEach(track => {
-    const originalIndex = playlist.findIndex(t => t.id === track.id);
-    const isCurrent = originalIndex === currentTrackIndex;
-    const isPlaying = isCurrent && activeAudio && !activeAudio.paused;
-
-    const row = document.createElement("div");
-    row.className = `lib-song-row ${isCurrent ? "is-active" : ""} ${isPlaying ? "is-playing" : ""}`;
-
-    const artistName = (!track.artist || track.artist.trim() === "") ? FALLBACK_ARTIST : track.artist;
-
-    row.innerHTML = `
-      <div class="lib-song-info">
-        <div class="lib-song-title">${track.title}</div>
-        <div class="lib-song-artist">${artistName}</div>
-      </div>
-      <div class="lib-live-wave">
-        <div class="lib-live-bar"></div>
-        <div class="lib-live-bar"></div>
-        <div class="lib-live-bar"></div>
-      </div>
-    `;
-
-    row.addEventListener("click", () => {
-      if (isCurrent) {
-        openFullPlayer();
-      } else {
-        triggerFadeTransition(() => {
-          loadTrack(originalIndex);
-          playTrack();
-        });
-      }
-    });
-
-    librarySongList.appendChild(row);
-  });
-}
-
-function updateLibTabIndicator() {
-  const activeBtn = document.querySelector(`.lib-tab-btn[data-tab="${activeLibTab}"]`);
-  if (activeBtn && libTabIndicator) {
-    libTabIndicator.style.left = `${activeBtn.offsetLeft}px`;
-    libTabIndicator.style.width = `${activeBtn.offsetWidth}px`;
-  }
-}
-
-function updateMiniPlayerUI() {
-  const currentTrack = playlist[currentTrackIndex];
-  if (!currentTrack) return;
-
-  if (miniTrackTitle) miniTrackTitle.textContent = currentTrack.title || "Unknown Track";
-  if (miniTrackArtist) {
-    miniTrackArtist.textContent = (!currentTrack.artist || currentTrack.artist.trim() === "") ? FALLBACK_ARTIST : currentTrack.artist;
-  }
-
-  if (miniPlayIcon && activeAudio) {
-    miniPlayIcon.className = activeAudio.paused ? "ri-play-fill" : "ri-pause-fill";
-  }
-
-  const activeRow = document.querySelector(".lib-song-row.is-active");
-  if (activeRow) {
-    activeRow.classList.toggle("is-playing", activeAudio && !activeAudio.paused);
+  if (isMinimized) {
+    closeAllDrawers();
+    exitZenMode();
   }
 }
 
@@ -670,15 +552,17 @@ function renderAssistSkinChips() {
 }
 
 function addNewEmojiSkin() {
-  const userInput = prompt("Enter a single emoji from your keyboard (e.g. 🎧, ⚡, 🪐, 🍕, 🦋, 🔥):");
+  const userInput = prompt("Enter a single emoji from your keyboard for your Assist Ball skin (e.g. 🎧, ⚡, 🪐, 🍕, 🦋, 🔥):");
   if (!userInput) return;
 
-  const emojiArray = Array.from(userInput.trim());
+  const trimmed = userInput.trim();
+  const emojiArray = Array.from(trimmed);
   if (emojiArray.length === 0) return;
   const pickedEmoji = emojiArray[0];
 
   const newSkinId = `emoji_${Date.now()}`;
   customAssistSkins.push({ id: newSkinId, emoji: pickedEmoji });
+
   localStorage.setItem("vibe_custom_assist_skins", JSON.stringify(customAssistSkins));
   applyAssistSkin(newSkinId);
   renderAssistSkinChips();
@@ -688,6 +572,7 @@ function deleteCustomEmojiSkin(skinId) {
   if (!confirm("Delete this custom emoji skin?")) return;
   customAssistSkins = customAssistSkins.filter(s => s.id !== skinId);
   localStorage.setItem("vibe_custom_assist_skins", JSON.stringify(customAssistSkins));
+
   if (assistSkin === skinId) applyAssistSkin("chai");
   renderAssistSkinChips();
 }
@@ -713,6 +598,7 @@ function applyControlsLayout(layout) {
     balls.forEach(b => { b.isPaused = false; });
     if (assistBallWrapper) assistBallWrapper.style.display = "none";
     if (assistRadialMenu) assistRadialMenu.classList.remove("active");
+
     requestAnimationFrame(updateNormalPhysics);
   }
 }
@@ -763,6 +649,18 @@ function applyAssistSkin(skin) {
             <path d="M50 50 C38 66, 26 80, 18 70 C20 67, 22 66, 20 64 C18 52, 34 46, 50 50 Z"/>
             <path d="M50 50 C32 40, 16 32, 20 20 C23 21, 25 22, 25 20 C36 18, 42 34, 50 50 Z"/>
           </g>
+          <g stroke="#ec4899" stroke-width="1.6" stroke-linecap="round">
+            <line x1="50" y1="50" x2="50" y2="40"/>
+            <line x1="50" y1="50" x2="58" y2="44"/>
+            <line x1="50" y1="50" x2="56" y2="56"/>
+            <line x1="50" y1="50" x2="44" y2="56"/>
+            <line x1="50" y1="50" x2="42" y2="44"/>
+          </g>
+          <circle cx="50" cy="40" r="1.8" fill="#fde047"/>
+          <circle cx="58" cy="44" r="1.8" fill="#fde047"/>
+          <circle cx="56" cy="56" r="1.8" fill="#fde047"/>
+          <circle cx="44" cy="56" r="1.8" fill="#fde047"/>
+          <circle cx="42" cy="44" r="1.8" fill="#fde047"/>
           <circle cx="50" cy="50" r="3.2" fill="#ec4899"/>
         </g>
       </svg>
@@ -804,14 +702,22 @@ function applyAssistSkin(skin) {
         </defs>
         <rect x="14" y="24" width="72" height="52" rx="7" fill="rgba(8, 14, 24, 0.88)" stroke="url(#cyberNeonBorder)" stroke-width="2.2"/>
         <rect x="22" y="32" width="56" height="26" rx="4" fill="rgba(255,255,255,0.06)" stroke="rgba(0, 242, 254, 0.4)" stroke-width="1.2"/>
+        <line x1="22" y1="36" x2="78" y2="36" stroke="#ff007f" stroke-width="1.5" opacity="0.8"/>
         <g class="cassette-spool cassette-spool-left" style="transform-origin: 36px 45px;">
           <circle cx="36" cy="45" r="9" fill="#030712" stroke="#00f2fe" stroke-width="1.8"/>
           <circle cx="36" cy="45" r="4" fill="#ffffff"/>
+          <line x1="36" y1="38" x2="36" y2="52" stroke="#00f2fe" stroke-width="1.5"/>
+          <line x1="29" y1="45" x2="43" y2="45" stroke="#00f2fe" stroke-width="1.5"/>
         </g>
         <g class="cassette-spool cassette-spool-right" style="transform-origin: 64px 45px;">
           <circle cx="64" cy="45" r="9" fill="#030712" stroke="#ff007f" stroke-width="1.8"/>
           <circle cx="64" cy="45" r="4" fill="#ffffff"/>
+          <line x1="64" y1="38" x2="64" y2="52" stroke="#ff007f" stroke-width="1.5"/>
+          <line x1="57" y1="45" x2="71" y2="45" stroke="#ff007f" stroke-width="1.5"/>
         </g>
+        <polygon points="26,76 32,64 68,64 74,76" fill="rgba(0, 242, 254, 0.12)" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+        <circle cx="34" cy="70" r="2" fill="#ffffff"/>
+        <circle cx="66" cy="70" r="2" fill="#ffffff"/>
       </svg>
     `;
   }
@@ -825,7 +731,9 @@ function applyAssistSkin(skin) {
   });
 }
 
-// Assist Ball Snapping & Docking
+// ========================================================
+// ASSIST BALL DRAG & SNAP
+// ========================================================
 function resetAssistIdleTimer() {
   if (!assistBallWrapper) return;
   clearTimeout(assistIdleTimer);
@@ -925,7 +833,9 @@ function setupAssistBallDraggable() {
     clearTimeout(assistIdleTimer);
     assistBallWrapper.classList.remove("docked-left", "docked-right");
   });
-  assistBallWrapper.addEventListener("mouseleave", resetAssistIdleTimer);
+  assistBallWrapper.addEventListener("mouseleave", () => {
+    resetAssistIdleTimer();
+  });
 
   document.getElementById("assist-btn-songs")?.addEventListener("click", () => {
     assistRadialMenu.classList.remove("active");
@@ -945,7 +855,9 @@ function setupAssistBallDraggable() {
   });
 }
 
-// Freely Movable Trophy
+// ========================================================
+// FREELY MOVABLE TROPHY BUTTON
+// ========================================================
 function setupDraggableTrophy() {
   if (!floatingScoreTab) return;
 
@@ -972,9 +884,12 @@ function setupDraggableTrophy() {
     if (!isDown) return;
     const diffX = e.clientX - startPointerX;
     const diffY = e.clientY - startPointerY;
+
     if (Math.hypot(diffX, diffY) > 5) isMoved = true;
+
     curX = Math.max(6, Math.min(initialX + diffX, window.innerWidth - 50));
     curY = Math.max(15, Math.min(initialY + diffY, window.innerHeight - 50));
+
     floatingScoreTab.style.transform = `translate3d(${curX}px, ${curY}px, 0)`;
   }
 
@@ -997,11 +912,17 @@ function setupDraggableTrophy() {
   window.addEventListener("pointerup", onPointerUp);
 }
 
-// Supabase Sync
+// ========================================================
+// SUPABASE SYNC & UPLOAD
+// ========================================================
 async function fetchSupabaseSongs() {
   if (!supabaseClient) return;
   try {
-    const { data, error } = await supabaseClient.from('songs').select('*').order('created_at', { ascending: true });
+    const { data, error } = await supabaseClient
+      .from('songs')
+      .select('*')
+      .order('created_at', { ascending: true });
+
     if (!error && data) {
       supabaseTracks = data.map(item => ({
         id: `sb_${item.id}`,
@@ -1010,11 +931,19 @@ async function fetchSupabaseSongs() {
         src: item.src
       }));
     }
-    const { data: delBaseData } = await supabaseClient.from('deleted_base_tracks').select('track_id');
+
+    const { data: delBaseData } = await supabaseClient
+      .from('deleted_base_tracks')
+      .select('track_id');
+
     if (delBaseData) {
       globallyDeletedBaseTrackIds = delBaseData.map(d => d.track_id);
     }
-  } catch (err) { console.warn(err); }
+
+    rebuildPlaylist();
+  } catch (err) {
+    console.warn("Supabase fetch error:", err);
+  }
 }
 
 function rebuildPlaylist() {
@@ -1038,27 +967,44 @@ function rebuildPlaylist() {
 }
 
 async function handleMainPlaylistUpload(file) {
-  if (!supabaseClient) { alert("Supabase is not connected!"); return; }
+  if (!supabaseClient) {
+    alert("Supabase is not connected!");
+    return;
+  }
+
   showUploadModal("Uploading to Main Playlist...");
+
   try {
     const cleanTitle = file.name.replace(/\.[^/.]+$/, "");
     const fileExt = file.name.split('.').pop();
     const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
 
-    const { error: storageError } = await supabaseClient.storage.from('music-tracks').upload(fileName, file, { cacheControl: '3600', upsert: false });
+    const { error: storageError } = await supabaseClient.storage
+      .from('music-tracks')
+      .upload(fileName, file, { cacheControl: '3600', upsert: false });
+
     if (storageError) throw storageError;
 
-    const { data: urlData } = supabaseClient.storage.from('music-tracks').getPublicUrl(fileName);
-    const { error: dbError } = await supabaseClient.from('songs').insert([{ title: cleanTitle, artist: FALLBACK_ARTIST, src: urlData.publicUrl }]);
+    const { data: urlData } = supabaseClient.storage
+      .from('music-tracks')
+      .getPublicUrl(fileName);
+
+    const publicUrl = urlData.publicUrl;
+
+    const { error: dbError } = await supabaseClient
+      .from('songs')
+      .insert([{ title: cleanTitle, artist: FALLBACK_ARTIST, src: publicUrl }]);
+
     if (dbError) throw dbError;
 
     hideUploadModal();
-    alert("Track added to Main Playlist!");
+    alert("Track added to Main Playlist successfully!");
+
     await fetchSupabaseSongs();
-    rebuildPlaylist();
     loadTrack(playlist.length - 1);
     playTrack();
     closeAllDrawers();
+
   } catch (err) {
     hideUploadModal();
     alert("Upload failed: " + err.message);
@@ -1069,11 +1015,14 @@ function showUploadModal(msg) {
   if (uploadStatusText) uploadStatusText.textContent = msg;
   if (uploadModal) uploadModal.classList.add("active");
 }
+
 function hideUploadModal() {
   if (uploadModal) uploadModal.classList.remove("active");
 }
 
-// Audio Engine
+// ========================================================
+// PING-PONG DUAL AUDIO ENGINE
+// ========================================================
 async function requestWakeLock() {
   if ('wakeLock' in navigator) {
     try {
@@ -1093,10 +1042,12 @@ document.addEventListener('visibilitychange', () => {
 
 function getNextTrackIndex() {
   let activePool = playlist;
-  if (currentTab === "liked" || activeLibTab === "liked") {
+  if (currentTab === "liked") {
     activePool = playlist.filter(t => likedTrackIds.includes(t.id));
   }
+
   if (activePool.length === 0) activePool = playlist;
+
   if (isRepeat) return currentTrackIndex;
 
   if (isShuffle) {
@@ -1104,11 +1055,14 @@ function getNextTrackIndex() {
     do {
       randomIndex = Math.floor(Math.random() * activePool.length);
     } while (randomIndex === currentTrackIndex && activePool.length > 1);
-    return playlist.findIndex(t => t.id === activePool[randomIndex].id);
+    
+    const selectedTrack = activePool[randomIndex];
+    return playlist.findIndex(t => t.id === selectedTrack.id);
   } else {
     const currentInPoolIdx = activePool.findIndex(t => t.id === playlist[currentTrackIndex].id);
     const nextInPoolIdx = (currentInPoolIdx + 1) % activePool.length;
-    return playlist.findIndex(t => t.id === activePool[nextInPoolIdx].id);
+    const nextTrackObj = activePool[nextInPoolIdx];
+    return playlist.findIndex(t => t.id === nextTrackObj.id);
   }
 }
 
@@ -1125,27 +1079,29 @@ function preloadStandbyTrack() {
 
 function loadTrack(index) {
   if (playlist.length === 0) return;
+
   currentTrackIndex = index;
   const track = playlist[currentTrackIndex];
 
   if (trackTitle) trackTitle.textContent = track.title || "Unknown Track";
-  if (trackArtist) {
-    trackArtist.textContent = (!track.artist || track.artist.trim() === "") ? FALLBACK_ARTIST : track.artist;
-  }
+  if (miniTitle) miniTitle.textContent = track.title || "Unknown Track";
+
+  const artistStr = (!track.artist || track.artist.trim() === "") ? FALLBACK_ARTIST : track.artist;
+  if (trackArtist) trackArtist.textContent = artistStr;
+  if (miniArtist) miniArtist.textContent = artistStr;
 
   activeAudio.src = track.src;
   activeAudio.currentTime = 0;
 
   updateHeartButton();
   updateMediaSessionMetadata(track);
-  updateMiniPlayerUI();
   preloadStandbyTrack();
-  renderLibrarySongs();
 }
 
 function playTrack() {
   if (!activeAudio || playlist.length === 0) return;
   if (audioCtx && audioCtx.state === "suspended") audioCtx.resume();
+
   requestWakeLock();
 
   const playPromise = activeAudio.play();
@@ -1154,8 +1110,9 @@ function playTrack() {
       updateMediaSessionMetadata(playlist[currentTrackIndex]);
       preloadStandbyTrack();
       if (assistBall) assistBall.classList.add("is-playing");
-      updateMiniPlayerUI();
-    }).catch(err => console.warn(err));
+    }).catch((err) => {
+      console.warn("Playback awaiting interaction:", err);
+    });
   }
 }
 
@@ -1170,8 +1127,8 @@ function attemptAutoplay() {
       updateMediaSessionMetadata(playlist[currentTrackIndex]);
       preloadStandbyTrack();
       if (assistBall) assistBall.classList.add("is-playing");
-      updateMiniPlayerUI();
-    }).catch(() => {
+    }).catch((err) => {
+      console.warn("Autoplay awaiting user gesture:", err);
       const unlockAutoplay = () => {
         playTrack();
         window.removeEventListener("click", unlockAutoplay);
@@ -1187,7 +1144,6 @@ function pauseTrack() {
   if (!activeAudio) return;
   activeAudio.pause();
   if (assistBall) assistBall.classList.remove("is-playing");
-  updateMiniPlayerUI();
 }
 
 function togglePlay() {
@@ -1210,15 +1166,18 @@ function prevTrack() {
     activeAudio.currentTime = 0;
     return;
   }
+
   standbyAudio.pause();
   triggerFadeTransition(() => {
     let activePool = playlist;
-    if (currentTab === "liked" || activeLibTab === "liked") activePool = playlist.filter(t => likedTrackIds.includes(t.id));
+    if (currentTab === "liked") activePool = playlist.filter(t => likedTrackIds.includes(t.id));
     if (activePool.length === 0) activePool = playlist;
 
     const currentInPoolIdx = activePool.findIndex(t => t.id === playlist[currentTrackIndex].id);
     const prevInPoolIdx = (currentInPoolIdx - 1 + activePool.length) % activePool.length;
-    loadTrack(playlist.findIndex(t => t.id === activePool[prevInPoolIdx].id));
+    const prevIdx = playlist.findIndex(t => t.id === activePool[prevInPoolIdx].id);
+
+    loadTrack(prevIdx);
     playTrack();
   });
 }
@@ -1228,6 +1187,7 @@ function triggerFadeTransition(actionCallback) {
     actionCallback();
     return;
   }
+
   isFading = true;
   const targetVol = parseFloat(volumeSlider ? volumeSlider.value : 1);
   let currentVol = activeAudio.volume;
@@ -1266,7 +1226,7 @@ function setupDualAudioListeners(audioNode) {
     const percent = (currentTime / duration) * 100;
     if (seekProgress) seekProgress.style.width = `${percent}%`;
     if (seekThumb) seekThumb.style.left = `${percent}%`;
-    if (miniProgressFill) miniProgressFill.style.width = `${percent}%`;
+    if (miniSeekProgress) miniSeekProgress.style.width = `${percent}%`;
 
     if (currentTimeEl) currentTimeEl.textContent = formatTime(currentTime);
     if (durationTimeEl) durationTimeEl.textContent = formatTime(duration);
@@ -1275,21 +1235,22 @@ function setupDualAudioListeners(audioNode) {
   audioNode.addEventListener("play", (e) => {
     if (e.target !== activeAudio) return;
     if (playIcon) playIcon.className = "ri-pause-fill";
+    if (miniPlayIcon) miniPlayIcon.className = "ri-pause-fill";
     if (assistBall) assistBall.classList.add("is-playing");
-    updateMiniPlayerUI();
     if ("mediaSession" in navigator) navigator.mediaSession.playbackState = "playing";
   });
 
   audioNode.addEventListener("pause", (e) => {
     if (e.target !== activeAudio) return;
     if (playIcon) playIcon.className = "ri-play-fill";
+    if (miniPlayIcon) miniPlayIcon.className = "ri-play-fill";
     if (assistBall) assistBall.classList.remove("is-playing");
-    updateMiniPlayerUI();
     if ("mediaSession" in navigator) navigator.mediaSession.playbackState = "paused";
   });
 
   audioNode.addEventListener("ended", (e) => {
     if (e.target !== activeAudio) return;
+
     const temp = activeAudio;
     activeAudio = standbyAudio;
     standbyAudio = temp;
@@ -1298,13 +1259,14 @@ function setupDualAudioListeners(audioNode) {
     const track = playlist[currentTrackIndex];
 
     if (trackTitle) trackTitle.textContent = track.title || "Unknown Track";
-    if (trackArtist) {
-      trackArtist.textContent = (!track.artist || track.artist.trim() === "") ? FALLBACK_ARTIST : track.artist;
-    }
+    if (miniTitle) miniTitle.textContent = track.title || "Unknown Track";
+    const artistStr = (!track.artist || track.artist.trim() === "") ? FALLBACK_ARTIST : track.artist;
+    if (trackArtist) trackArtist.textContent = artistStr;
+    if (miniArtist) miniArtist.textContent = artistStr;
 
     updateHeartButton();
     updateMediaSessionMetadata(track);
-    updateMiniPlayerUI();
+
     playTrack();
     preloadStandbyTrack();
   });
@@ -1314,8 +1276,24 @@ function setProgress(e) {
   if (!seekContainer || !activeAudio) return;
   const rect = seekContainer.getBoundingClientRect();
   const clickX = e.clientX - rect.left;
+  const width = rect.width;
   const duration = activeAudio.duration;
-  if (duration) activeAudio.currentTime = (clickX / rect.width) * duration;
+
+  if (duration) {
+    activeAudio.currentTime = (clickX / width) * duration;
+  }
+}
+
+function setMiniProgress(e) {
+  if (!miniSeekContainer || !activeAudio) return;
+  const rect = miniSeekContainer.getBoundingClientRect();
+  const clickX = e.clientX - rect.left;
+  const width = rect.width;
+  const duration = activeAudio.duration;
+
+  if (duration) {
+    activeAudio.currentTime = (clickX / width) * duration;
+  }
 }
 
 function formatTime(seconds) {
@@ -1343,15 +1321,21 @@ function updateHeartButton() {
   const currentTrack = playlist[currentTrackIndex];
   if (!currentTrack) return;
   const isLiked = likedTrackIds.includes(currentTrack.id);
+
   if (mainHeartBtn) {
     mainHeartBtn.classList.toggle("liked", isLiked);
     mainHeartIcon.className = isLiked ? "ri-heart-fill" : "ri-heart-line";
+  }
+  if (miniHeartIcon) {
+    miniHeartIcon.className = isLiked ? "ri-heart-fill" : "ri-heart-line";
+    miniHeartIcon.style.color = isLiked ? "var(--heart-red)" : "inherit";
   }
 }
 
 function toggleLikeCurrentTrack() {
   const currentTrack = playlist[currentTrackIndex];
   if (!currentTrack) return;
+
   const idx = likedTrackIds.indexOf(currentTrack.id);
   if (idx > -1) likedTrackIds.splice(idx, 1);
   else likedTrackIds.push(currentTrack.id);
@@ -1360,9 +1344,9 @@ function toggleLikeCurrentTrack() {
   updateHeartButton();
   updateLikedCount();
   renderPlaylist();
-  renderLibrarySongs();
 }
 
+// Share Track
 async function shareCurrentTrack() {
   const currentTrack = playlist[currentTrackIndex];
   if (!currentTrack) return;
@@ -1370,11 +1354,16 @@ async function shareCurrentTrack() {
   const trackName = currentTrack.title || "Vibe Track";
   const artistName = (!currentTrack.artist || currentTrack.artist.trim() === "") ? FALLBACK_ARTIST : currentTrack.artist;
   const appUrl = window.location.origin + window.location.pathname;
+
   const shareText = `🎧 Now listening to: "${trackName}" by ${artistName} on Vibe Music Player ✨\nTune in here:`;
 
   if (navigator.share) {
     try {
-      await navigator.share({ title: `${trackName} - Vibe Player`, text: shareText, url: appUrl });
+      await navigator.share({
+        title: `${trackName} - Vibe Player`,
+        text: shareText,
+        url: appUrl
+      });
     } catch (err) {
       if (err.name !== 'AbortError') copyShareFallback(shareText, appUrl);
     }
@@ -1397,111 +1386,162 @@ function copyShareFallback(text, url) {
 function updateLikedCount() {
   if (likedCountBadge) likedCountBadge.textContent = likedTrackIds.length;
 }
+
 function updateTrackCount() {
   if (trackCountBadge) trackCountBadge.textContent = playlist.length;
 }
 
-// Edit & Delete
+// ========================================================
+// 3. EDIT TRACK INFO (GLOBAL ADMIN vs. PERSONAL)
+// ========================================================
 async function editTrackInfo(trackId) {
   const track = playlist.find(t => t.id === trackId);
   if (!track) return;
+
   const currentTitle = track.title || "";
   const currentArtist = (!track.artist || track.artist === FALLBACK_ARTIST) ? "" : track.artist;
 
   let isGlobalAdminEdit = false;
+
   if (trackId.startsWith("sb_")) {
-    const editChoice = confirm(`Update "${currentTitle}" globally for all users?\n\n• OK = Global (Admin PIN)\n• Cancel = Local`);
+    const editChoice = confirm(
+      `Track: "${currentTitle}"\n\n` +
+      `Would you like to update this track globally for all users?\n\n` +
+      `• Press OK to edit globally for everyone (Admin PIN required)\n` +
+      `• Press Cancel to edit locally for this device only`
+    );
+
     if (editChoice) {
-      const pin = prompt("Enter Admin PIN:");
+      const pin = prompt("Enter Admin PIN to update for everyone:");
       if (pin === null) return;
-      if (pin.trim() === ADMIN_PIN) isGlobalAdminEdit = true;
-      else alert("Incorrect PIN! Personal mode selected.");
+      if (pin.trim() === ADMIN_PIN) {
+        isGlobalAdminEdit = true;
+      } else {
+        alert("Incorrect PIN! Switched to personal edit mode.");
+      }
     }
   }
 
   const newTitle = prompt("Edit Track Title:", currentTitle);
   if (newTitle === null) return;
-  const newArtist = prompt("Edit Artist Name:", currentArtist);
+
+  const newArtist = prompt("Edit Artist / Singer Name:", currentArtist);
   if (newArtist === null) return;
 
   const finalTitle = newTitle.trim() || currentTitle;
   const finalArtist = newArtist.trim() || FALLBACK_ARTIST;
 
   if (isGlobalAdminEdit && supabaseClient) {
-    showUploadModal("Updating track info...");
+    showUploadModal("Updating track info for everyone...");
     try {
       const dbId = trackId.replace("sb_", "");
-      const { error } = await supabaseClient.from('songs').update({ title: finalTitle, artist: finalArtist }).eq('id', dbId);
+      const { error } = await supabaseClient
+        .from('songs')
+        .update({ title: finalTitle, artist: finalArtist })
+        .eq('id', dbId);
+
       if (error) throw error;
+
       delete trackOverrides[trackId];
       localStorage.setItem("vibe_track_overrides", JSON.stringify(trackOverrides));
+
       await fetchSupabaseSongs();
       hideUploadModal();
-      alert("Updated globally!");
+      alert("Track details updated globally for all users!");
     } catch (err) {
       hideUploadModal();
-      alert("Update failed: " + err.message);
+      alert("Global update failed: " + err.message);
     }
   } else {
     trackOverrides[trackId] = { title: finalTitle, artist: finalArtist };
     localStorage.setItem("vibe_track_overrides", JSON.stringify(trackOverrides));
     rebuildPlaylist();
+    alert("Track details updated for this device only!");
   }
 
   if (playlist[currentTrackIndex] && playlist[currentTrackIndex].id === trackId) {
     if (trackTitle) trackTitle.textContent = finalTitle;
     if (trackArtist) trackArtist.textContent = finalArtist;
+    if (miniTitle) miniTitle.textContent = finalTitle;
+    if (miniArtist) miniArtist.textContent = finalArtist;
     updateMediaSessionMetadata(playlist[currentTrackIndex]);
   }
 }
 
+// ========================================================
+// 4. DELETE TRACK (GLOBAL ADMIN vs. PERSONAL REMOVE)
+// ========================================================
 async function deleteTrack(trackId) {
   const track = playlist.find(t => t.id === trackId);
   if (!track) return;
 
   let deleteForEveryone = false;
+
   if (trackId.startsWith("sb_") || trackId.startsWith("s")) {
-    const deleteChoice = confirm(`Delete "${track.title}" globally?\n\n• OK = Delete for Everyone (Admin PIN)\n• Cancel = Remove for you`);
+    const deleteChoice = confirm(
+      `Track: "${track.title}"\n\n` +
+      `Do you want to delete this track globally for everyone?\n\n` +
+      `• Press OK to delete globally for all users (Admin PIN required)\n` +
+      `• Press Cancel to hide/remove it from your device only`
+    );
+
     if (deleteChoice) {
-      const pin = prompt("Enter Admin PIN:");
+      const pin = prompt("Enter Admin PIN to delete globally for everyone:");
       if (pin === null) return;
-      if (pin.trim() === ADMIN_PIN) deleteForEveryone = true;
-      else alert("Incorrect PIN! Removing locally.");
+      if (pin.trim() === ADMIN_PIN) {
+        deleteForEveryone = true;
+      } else {
+        alert("Incorrect PIN! Proceeding with local removal only.");
+      }
     }
   } else {
-    if (!confirm(`Remove "${track.title}" from your player?`)) return;
+    if (!confirm(`Are you sure you want to remove "${track.title}" from your player?`)) return;
   }
 
   const wasPlaying = playlist[currentTrackIndex] && playlist[currentTrackIndex].id === trackId;
 
   if (deleteForEveryone && supabaseClient) {
-    showUploadModal("Deleting track globally...");
+    showUploadModal("Deleting track globally for everyone...");
     try {
       if (trackId.startsWith("sb_")) {
-        await supabaseClient.from('songs').delete().eq('id', trackId.replace("sb_", ""));
-      } else {
-        await supabaseClient.from('deleted_base_tracks').upsert([{ track_id: trackId }]);
+        const dbId = trackId.replace("sb_", "");
+        const { error } = await supabaseClient.from('songs').delete().eq('id', dbId);
+        if (error) throw error;
+      } else if (trackId.startsWith("s")) {
+        const { error } = await supabaseClient.from('deleted_base_tracks').upsert([{ track_id: trackId }]);
+        if (error) throw error;
       }
+
       await fetchSupabaseSongs();
       hideUploadModal();
-      alert("Deleted globally!");
+      alert("Track deleted globally for all users!");
     } catch (err) {
       hideUploadModal();
-      alert("Deletion failed: " + err.message);
+      alert("Global deletion failed: " + err.message);
       return;
     }
   } else if (track.isLocal) {
     await deleteLocalTrackFromDB(trackId);
     localTracks = localTracks.filter(t => t.id !== trackId);
+    alert("Local track deleted from this device.");
   } else {
     if (!hiddenTrackIds.includes(trackId)) {
       hiddenTrackIds.push(trackId);
       localStorage.setItem("vibe_hidden_songs", JSON.stringify(hiddenTrackIds));
     }
+    alert("Track removed from your player view.");
   }
 
   rebuildPlaylist();
-  if (wasPlaying && playlist.length > 0) {
+
+  if (playlist.length === 0) {
+    pauseTrack();
+    if (trackTitle) trackTitle.textContent = "No Songs Available";
+    if (trackArtist) trackArtist.textContent = "";
+    return;
+  }
+
+  if (wasPlaying) {
     currentTrackIndex = currentTrackIndex % playlist.length;
     loadTrack(currentTrackIndex);
     playTrack();
@@ -1528,38 +1568,56 @@ function updateMediaSessionMetadata(track) {
   }
 }
 
-// Local File Upload
+// ========================================================
+// 5. LOCAL FILE UPLOAD (INDEXEDDB)
+// ========================================================
 async function handleLocalFileUpload(event) {
   const files = event.target.files;
   if (!files || files.length === 0) return;
-  showUploadModal("Saving tracks permanently to device...");
+
+  showUploadModal("Saving tracks permanently to this device...");
 
   for (let i = 0; i < files.length; i++) {
     const file = files[i];
     const cleanTitle = file.name.replace(/\.[^/.]+$/, "");
     const songId = `local_${Date.now()}_${i}`;
-    await saveLocalTrackToDB({ id: songId, title: cleanTitle, artist: FALLBACK_ARTIST, blob: file });
+
+    const trackObj = {
+      id: songId,
+      title: cleanTitle,
+      artist: FALLBACK_ARTIST,
+      blob: file
+    };
+
+    await saveLocalTrackToDB(trackObj);
+
+    const blobUrl = URL.createObjectURL(file);
     localTracks.push({
       id: songId,
       title: cleanTitle,
       artist: FALLBACK_ARTIST,
-      src: URL.createObjectURL(file),
+      src: blobUrl,
       isLocal: true
     });
   }
+
   hideUploadModal();
   rebuildPlaylist();
   loadTrack(playlist.length - 1);
   playTrack();
   closeAllDrawers();
   event.target.value = "";
+  alert("Local tracks saved permanently to this device!");
 }
 
-// UI Controls
+// ========================================================
+// UI CONTROLS & DRAWERS
+// ========================================================
 function toggleZenMode() {
   isZenMode = !isZenMode;
   document.body.classList.toggle("zen-mode", isZenMode);
 }
+
 function exitZenMode() {
   if (isZenMode) {
     isZenMode = false;
@@ -1570,11 +1628,13 @@ function exitZenMode() {
 function applyMood(index, userExplicitChoice = true) {
   if (index < 0 || index >= moods.length) index = 0;
   moods.forEach(m => document.body.classList.remove(m.cls));
+
   currentMoodIndex = index;
   localStorage.setItem("vibe_mood_idx", currentMoodIndex);
 
   const mood = moods[currentMoodIndex];
   document.body.classList.add(mood.cls);
+
   if (moodLabel) moodLabel.textContent = mood.name;
   if (moodIcon) moodIcon.className = mood.icon;
 
@@ -1582,11 +1642,16 @@ function applyMood(index, userExplicitChoice = true) {
     btn.classList.toggle("active", i === currentMoodIndex);
   });
 
-  if (userExplicitChoice && mood.weather === "rain" && rainSlider) {
-    if (!isWebAudioInit) initRainAudio();
-    if (rainSlider.value == 0) {
-      rainSlider.value = 0.4;
-      if (rainGainNode) rainGainNode.gain.value = 0.4;
+  if (userExplicitChoice) {
+    if (mood.weather === "rain" && rainSlider) {
+      if (!isWebAudioInit) initRainAudio();
+      if (rainSlider.value == 0) {
+        rainSlider.value = 0.4;
+        if (rainGainNode) rainGainNode.gain.value = 0.4;
+      }
+    } else if (rainSlider && rainGainNode && rainSlider.value > 0) {
+      rainSlider.value = 0;
+      rainGainNode.gain.value = 0;
     }
   }
 }
@@ -1600,6 +1665,8 @@ function applyBackground(index) {
   if (index < 0 || index >= allWallpapers.length) index = 0;
   currentBgIndex = String(index);
   localStorage.setItem("vibe_bg_idx", currentBgIndex);
+
+  document.body.classList.add("canvas-photo");
 
   const bg = allWallpapers[index];
   document.documentElement.style.setProperty('--bg-desktop', `url('${bg.desktop}')`);
@@ -1615,10 +1682,16 @@ function applyCustomBackground(dataUrl) {
   currentBgIndex = "custom";
   customBgData = dataUrl;
   localStorage.setItem("vibe_bg_idx", "custom");
-  try { localStorage.setItem("vibe_custom_bg", dataUrl); } catch (err) {}
+  try {
+    localStorage.setItem("vibe_custom_bg", dataUrl);
+  } catch (err) {
+    console.warn("Storage quota full");
+  }
 
+  document.body.classList.add("canvas-photo");
   document.documentElement.style.setProperty('--bg-desktop', `url('${dataUrl}')`);
   document.documentElement.style.setProperty('--bg-mobile', `url('${dataUrl}')`);
+
   document.querySelectorAll(".bg-btn:not(#custom-bg-label)").forEach(btn => btn.classList.remove("active"));
   if (customBgLabel) customBgLabel.classList.add("active");
 }
@@ -1626,28 +1699,22 @@ function applyCustomBackground(dataUrl) {
 function handleCustomBgUpload(e) {
   const file = e.target.files[0];
   if (!file) return;
+
   const reader = new FileReader();
-  reader.onload = (event) => applyCustomBackground(event.target.result);
+  reader.onload = (event) => {
+    applyCustomBackground(event.target.result);
+  };
   reader.readAsDataURL(file);
 }
 
 function setupSwipeGestures() {
-  let touchStartX = 0, touchStartY = 0;
-  window.addEventListener("touchstart", (e) => { 
-    touchStartX = e.touches[0].clientX; 
-    touchStartY = e.touches[0].clientY;
-  }, { passive: true });
-
-  window.addEventListener("touchend", (e) => {
-    if (isArcadeMode || e.target.closest("#volume-slider") || e.target.closest("#seek-container") || e.target.closest(".playlist-drawer") || e.target.closest(".assist-ball-wrapper") || e.target.closest(".floating-score-tab")) return;
-    const diffX = e.changedTouches[0].clientX - touchStartX;
-    const diffY = e.changedTouches[0].clientY - touchStartY;
-
-    if (currentView === "full" && diffY > 90 && Math.abs(diffX) < 60) {
-      collapseToLibrary();
-      return;
-    }
-    if (currentView === "full" && Math.abs(diffX) > 60) {
+  let touchStartX = 0;
+  window.addEventListener("touchstart", (e) => { touchStartX = e.touches[0].clientX; }, { passive: true });
+  window.addEventListener("touched", (e) => {
+    if (isArcadeMode || isMinimized || e.target.closest("#volume-slider") || e.target.closest("#seek-container") || e.target.closest(".playlist-drawer") || e.target.closest(".assist-ball-wrapper") || e.target.closest(".floating-score-tab") || e.target.closest(".mini-player-bar")) return;
+    const touchEndX = e.changedTouches[0].clientX;
+    const diffX = touchEndX - touchStartX;
+    if (Math.abs(diffX) > 60) {
       if (diffX < 0) nextTrack();
       else prevTrack();
     }
@@ -1657,13 +1724,24 @@ function setupSwipeGestures() {
 function renderPlaylist() {
   if (!playlistScrollList) return;
   playlistScrollList.innerHTML = "";
+
   const query = searchInput ? searchInput.value.toLowerCase().trim() : "";
+
   let targetTracks = playlist;
   if (currentTab === "liked") targetTracks = playlist.filter(t => likedTrackIds.includes(t.id));
+
+  if (targetTracks.length === 0) {
+    const emptyMsg = document.createElement("p");
+    emptyMsg.style.cssText = "text-align: center; color: var(--text-dim); font-size: 0.85rem; padding: 25px 0;";
+    emptyMsg.textContent = "No tracks found.";
+    playlistScrollList.appendChild(emptyMsg);
+    return;
+  }
 
   targetTracks.forEach((track) => {
     const originalIndex = playlist.findIndex(t => t.id === track.id);
     if (originalIndex === -1) return;
+
     if (query && !track.title.toLowerCase().includes(query) && !(track.artist || "").toLowerCase().includes(query)) return;
 
     const isLiked = likedTrackIds.includes(track.id);
@@ -1671,6 +1749,7 @@ function renderPlaylist() {
 
     const item = document.createElement("div");
     item.className = `playlist-item ${originalIndex === currentTrackIndex ? "active" : ""}`;
+    
     item.innerHTML = `
       <div class="playlist-item-info">
         <div class="item-title">${track.title}</div>
@@ -1695,17 +1774,24 @@ function renderPlaylist() {
       closeAllDrawers();
     });
 
-    item.querySelector(".item-edit-btn").addEventListener("click", (e) => {
-      e.stopPropagation();
-      editTrackInfo(track.id);
-    });
+    const editBtn = item.querySelector(".item-edit-btn");
+    if (editBtn) {
+      editBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        editTrackInfo(track.id);
+      });
+    }
 
-    item.querySelector(".item-delete-btn").addEventListener("click", (e) => {
-      e.stopPropagation();
-      deleteTrack(track.id);
-    });
+    const delBtn = item.querySelector(".item-delete-btn");
+    if (delBtn) {
+      delBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        deleteTrack(track.id);
+      });
+    }
 
-    item.querySelector(".item-heart-btn").addEventListener("click", (e) => {
+    const itemHeart = item.querySelector(".item-heart-btn");
+    itemHeart.addEventListener("click", (e) => {
       e.stopPropagation();
       const idIdx = likedTrackIds.indexOf(track.id);
       if (idIdx > -1) likedTrackIds.splice(idIdx, 1);
@@ -1714,7 +1800,6 @@ function renderPlaylist() {
       updateHeartButton();
       updateLikedCount();
       renderPlaylist();
-      renderLibrarySongs();
     });
 
     playlistScrollList.appendChild(item);
@@ -1726,11 +1811,13 @@ function openPlaylistDrawer() {
   if (playlistDrawer) playlistDrawer.classList.add("active");
   if (drawerBackdrop) drawerBackdrop.classList.add("active");
 }
+
 function openThemeDrawer() {
   closeAllDrawers();
   if (themeDrawer) themeDrawer.classList.add("active");
   if (drawerBackdrop) drawerBackdrop.classList.add("active");
 }
+
 function closeAllDrawers() {
   if (playlistDrawer) playlistDrawer.classList.remove("active");
   if (themeDrawer) themeDrawer.classList.remove("active");
@@ -1740,15 +1827,20 @@ function closeAllDrawers() {
   if (assistRadialMenu) assistRadialMenu.classList.remove("active");
 }
 
-// Draggable Volume Box
+// Draggable Volume Bar
 function setupDraggableVolume() {
   if (!draggableVolume) return;
+
   let volCurrentX = Math.max(20, window.innerWidth - 210);
   let volCurrentY = Math.max(20, window.innerHeight - 80);
   let startX = 0, startY = 0;
   let isDragging = false;
 
-  const getRestrictedY = (y) => isArcadeMode ? window.innerHeight - draggableVolume.offsetHeight - 25 : y;
+  const getRestrictedY = (y) => {
+    if (!isArcadeMode) return y;
+    return window.innerHeight - draggableVolume.offsetHeight - 25;
+  };
+
   draggableVolume.style.transform = `translate3d(${volCurrentX}px, ${getRestrictedY(volCurrentY)}px, 0)`;
 
   function onPointerDown(e) {
@@ -1758,12 +1850,23 @@ function setupDraggableVolume() {
     startY = e.clientY - volCurrentY;
     draggableVolume.setPointerCapture(e.pointerId);
   }
+
   function onPointerMove(e) {
     if (!isDragging) return;
-    volCurrentX = Math.max(10, Math.min(e.clientX - startX, window.innerWidth - 190));
-    volCurrentY = Math.max(10, Math.min(e.clientY - startY, window.innerHeight - 52));
+    let newX = e.clientX - startX;
+    let newY = e.clientY - startY;
+
+    const maxX = window.innerWidth - (draggableVolume.offsetWidth || 180) - 10;
+    const maxY = window.innerHeight - (draggableVolume.offsetHeight || 42) - 10;
+
+    newX = Math.max(10, Math.min(newX, maxX));
+    newY = Math.max(10, Math.min(newY, maxY));
+
+    volCurrentX = newX;
+    volCurrentY = newY;
     draggableVolume.style.transform = `translate3d(${volCurrentX}px, ${getRestrictedY(volCurrentY)}px, 0)`;
   }
+
   function onPointerUp(e) {
     if (!isDragging) return;
     isDragging = false;
@@ -1796,28 +1899,38 @@ function initRainAudio() {
       output[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362) * 0.11;
       b6 = white * 0.115926;
     }
+
     const rainSource = audioCtx.createBufferSource();
     rainSource.buffer = noiseBuffer;
     rainSource.loop = true;
+
     const rainFilter = audioCtx.createBiquadFilter();
     rainFilter.type = "lowpass";
     rainFilter.frequency.value = 1000;
+
     rainGainNode = audioCtx.createGain();
     rainGainNode.gain.value = 0;
+
     rainSource.connect(rainFilter);
     rainFilter.connect(rainGainNode);
     rainGainNode.connect(audioCtx.destination);
     rainSource.start();
+
     isWebAudioInit = true;
-  } catch (err) { console.warn(err); }
+  } catch (err) {
+    console.warn("Rain audio init waiting:", err);
+  }
 }
 
-// Bouncing Balls
+// Bouncing Balls (Normal Mode)
 function setupBouncingBalls() {
+  const winW = window.innerWidth;
+  const winH = window.innerHeight;
+
   balls = [
     { el: btnDrawer, x: 30, y: 110, vx: 2.2, vy: 1.8, size: 52, isPaused: false },
-    { el: btnTheme, x: Math.max(10, window.innerWidth - 90), y: 130, vx: -2.0, vy: 2.2, size: 52, isPaused: false },
-    { el: btnUpload, x: 50, y: Math.max(10, window.innerHeight - 180), vx: 2.4, vy: -1.9, size: 52, isPaused: false }
+    { el: btnTheme, x: Math.max(10, winW - 90), y: 130, vx: -2.0, vy: 2.2, size: 52, isPaused: false },
+    { el: btnUpload, x: 50, y: Math.max(10, winH - 180), vx: 2.4, vy: -1.9, size: 52, isPaused: false }
   ].filter(b => b.el !== null);
 
   balls.forEach(ball => {
@@ -1833,7 +1946,8 @@ function setupBouncingBalls() {
 }
 
 function updateNormalPhysics() {
-  if (isArcadeMode || controlsLayout === "assist" || currentView === "library") return;
+  if (isArcadeMode || controlsLayout === "assist") return;
+
   const winW = window.innerWidth;
   const winH = window.innerHeight;
 
@@ -1841,6 +1955,7 @@ function updateNormalPhysics() {
     if (!ball.isPaused && ball.el) {
       ball.x += ball.vx;
       ball.y += ball.vy;
+
       if (ball.x <= 0 || ball.x + ball.size >= winW) {
         ball.x = Math.max(0, Math.min(ball.x, winW - ball.size));
         ball.vx *= -1;
@@ -1859,7 +1974,8 @@ function updateNormalPhysics() {
       const dx = (b2.x + b2.size/2) - (b1.x + b1.size/2);
       const dy = (b2.y + b2.size/2) - (b1.y + b1.size/2);
       const dist = Math.sqrt(dx*dx + dy*dy);
-      if (dist < (b1.size + b2.size) / 2 && dist > 0) {
+      const minDist = (b1.size + b2.size) / 2;
+      if (dist < minDist && dist > 0) {
         const nx = dx/dist, ny = dy/dist;
         const p = (b1.vx - b2.vx)*nx + (b1.vy - b2.vy)*ny;
         if (p > 0) {
@@ -1912,7 +2028,9 @@ function initWeatherCanvas() {
   drawWeather();
 }
 
-// Arcade Mode
+// ========================================================
+// 6. ARCADE MODE
+// ========================================================
 function initArcadeUI() {
   liveScoreHUD = document.createElement("div");
   liveScoreHUD.className = "arcade-live-hud";
@@ -1975,7 +2093,10 @@ function initArcadeUI() {
   if (sidebarSaveNickBtn) {
     sidebarSaveNickBtn.addEventListener("click", async () => {
       const tag = sidebarNickInput.value.trim();
-      if (!tag || tag.length < 2) { alert("Tag must be at least 2 characters."); return; }
+      if (!tag || tag.length < 2) {
+        alert("Tag must be at least 2 characters.");
+        return;
+      }
       sidebarSaveNickBtn.textContent = "Checking...";
       const isClaimed = await claimOrUpdateGameTag(tag);
       sidebarSaveNickBtn.textContent = "Save";
@@ -2002,37 +2123,80 @@ function updateLiveHUD() {
 async function fetchGlobalHighScore() {
   if (!supabaseClient) return;
   try {
-    const { data, error } = await supabaseClient.from('arcade_scores').select('nickname, score, device_id').order('score', { ascending: false }).limit(1);
+    const { data, error } = await supabaseClient
+      .from('arcade_scores')
+      .select('nickname, score, device_id')
+      .order('score', { ascending: false })
+      .limit(1);
+
     if (!error && data && data.length > 0) {
       globalHighScore = data[0].score;
       globalHighScoreNickname = data[0].nickname;
+    } else if (personalHighScore > 0 && arcadeNickname) {
+      globalHighScore = personalHighScore;
+      globalHighScoreNickname = arcadeNickname;
     }
-  } catch (err) { console.warn(err); }
+  } catch (err) {
+    console.warn("Global score fetch error:", err);
+  }
 }
 
 async function claimOrUpdateGameTag(newTag) {
   if (!supabaseClient) return false;
-  try {
-    const { data: existing } = await supabaseClient.from('arcade_scores').select('nickname, device_id, score').ilike('nickname', newTag);
-    if (existing && existing.length > 0 && existing[0].device_id !== DEVICE_ID) {
-      alert(`⚠️ Tag "${newTag}" already taken!`);
-      return false;
-    }
-    const { data: myDeviceRow } = await supabaseClient.from('arcade_scores').select('id, score').eq('device_id', DEVICE_ID).maybeSingle();
-    const finalScore = Math.max(personalHighScore || 0, myDeviceRow ? myDeviceRow.score || 0 : 0);
 
-    await supabaseClient.from('arcade_scores').upsert({
-      nickname: newTag,
-      score: finalScore,
-      device_id: DEVICE_ID,
-      updated_at: new Date().toISOString()
-    }, { onConflict: 'nickname' });
+  try {
+    const { data: existing, error: checkErr } = await supabaseClient
+      .from('arcade_scores')
+      .select('nickname, device_id, score')
+      .ilike('nickname', newTag);
+
+    if (checkErr) throw checkErr;
+
+    if (existing && existing.length > 0) {
+      const match = existing[0];
+      if (match.device_id && match.device_id !== DEVICE_ID) {
+        alert(`⚠️ Game Tag "${newTag}" is already taken by another player! Please choose a unique tag.`);
+        return false;
+      }
+    }
+
+    const { data: myDeviceRow } = await supabaseClient
+      .from('arcade_scores')
+      .select('id, score')
+      .eq('device_id', DEVICE_ID)
+      .maybeSingle();
+
+    if (myDeviceRow) {
+      const finalScore = Math.max(personalHighScore || 0, myDeviceRow.score || 0);
+      const { error: updateErr } = await supabaseClient
+        .from('arcade_scores')
+        .update({
+          nickname: newTag,
+          score: finalScore,
+          updated_at: new Date().toISOString()
+        })
+        .eq('device_id', DEVICE_ID);
+
+      if (updateErr) throw updateErr;
+    } else {
+      const { error: insertErr } = await supabaseClient
+        .from('arcade_scores')
+        .upsert({
+          nickname: newTag,
+          score: personalHighScore || 0,
+          device_id: DEVICE_ID,
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'nickname' });
+
+      if (insertErr) throw insertErr;
+    }
 
     arcadeNickname = newTag;
     localStorage.setItem("vibe_arcade_nickname", arcadeNickname);
     await fetchGlobalHighScore();
     updateLeaderboardUI();
     return true;
+
   } catch (err) {
     alert("Could not claim tag: " + err.message);
     return false;
@@ -2042,23 +2206,41 @@ async function claimOrUpdateGameTag(newTag) {
 async function updateGlobalScore(newScore) {
   if (!supabaseClient || !arcadeNickname || newScore <= 0) return;
   try {
-    const { data } = await supabaseClient.from('arcade_scores').select('score').eq('nickname', arcadeNickname).maybeSingle();
-    if (newScore > (data ? data.score || 0 : 0)) {
-      await supabaseClient.from('arcade_scores').upsert({
-        nickname: arcadeNickname,
-        score: newScore,
-        device_id: DEVICE_ID,
-        updated_at: new Date().toISOString()
-      }, { onConflict: 'nickname' });
+    const { data, error } = await supabaseClient
+      .from('arcade_scores')
+      .select('score')
+      .eq('nickname', arcadeNickname)
+      .maybeSingle();
+
+    let existingScore = 0;
+    if (!error && data) existingScore = data.score || 0;
+
+    if (newScore > existingScore) {
+      const { error: upsertErr } = await supabaseClient
+        .from('arcade_scores')
+        .upsert({
+          nickname: arcadeNickname,
+          score: newScore,
+          device_id: DEVICE_ID,
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'nickname' });
+
+      if (upsertErr) throw upsertErr;
       await fetchGlobalHighScore();
       updateLeaderboardUI();
     }
-  } catch (err) { console.warn(err); }
+  } catch (err) {
+    console.warn("Global score update error:", err);
+  }
 }
 
 async function saveArcadeNickname() {
-  const nick = document.getElementById("arcade-nick-input").value.trim();
-  if (!nick || nick.length < 2) { alert("Tag must be at least 2 characters."); return; }
+  const input = document.getElementById("arcade-nick-input");
+  const nick = input.value.trim();
+  if (!nick || nick.length < 2) {
+    alert("Tag must be at least 2 characters.");
+    return;
+  }
   const isClaimed = await claimOrUpdateGameTag(nick);
   if (isClaimed) {
     nicknameModal.classList.remove("active");
@@ -2073,7 +2255,6 @@ function prepareArcadeStart() {
 }
 
 async function requestStartArcade() {
-  openFullPlayer();
   exitZenMode();
   closeAllDrawers();
   isArcadeMode = true;
@@ -2083,6 +2264,7 @@ async function requestStartArcade() {
 
   liveScoreHUD.classList.add("active");
   draggableVolume.classList.add("game-paddle-mode");
+
   [btnDrawer, btnTheme, btnUpload].forEach(b => { if (b) b.style.display = "none"; });
   if (assistBallWrapper) assistBallWrapper.style.display = "none";
 
@@ -2091,6 +2273,7 @@ async function requestStartArcade() {
   updateLeaderboardUI();
 
   spawnDynamicArcadeBall("merge_ball", "ri-play-list-2-fill", window.innerWidth / 2 - 26, 120, 3.2, -4);
+
   requestAnimationFrame(updateArcadePhysics);
 }
 
@@ -2101,15 +2284,60 @@ function spawnDynamicArcadeBall(id, iconCls, startX, startY, vx, vy) {
   ballEl.innerHTML = `<i class="${iconCls}"></i>`;
   document.body.appendChild(ballEl);
 
-  arcadeBalls.push({ id, el: ballEl, x: startX, y: startY, vx, vy, size: 52 });
+  arcadeBalls.push({
+    id: id,
+    el: ballEl,
+    x: startX,
+    y: startY,
+    vx: vx,
+    vy: vy,
+    size: 52
+  });
+}
+
+function checkArcadeProgression() {
+  let newLevel = 1;
+  if (arcadeScore >= 1200) newLevel = 6;
+  else if (arcadeScore >= 800) newLevel = 5;
+  else if (arcadeScore >= 500) newLevel = 4;
+  else if (arcadeScore >= 250) newLevel = 3;
+  else if (arcadeScore >= 100) newLevel = 2;
+
+  if (newLevel > arcadeLevel) {
+    arcadeLevel = newLevel;
+    triggerArcadeLevelSpawn(arcadeLevel);
+    updateLiveHUD();
+  }
+}
+
+function triggerArcadeLevelSpawn(level) {
+  const winW = window.innerWidth;
+  if (level === 2) {
+    spawnDynamicArcadeBall("theme_ball", "ri-palette-line", Math.random() * (winW - 100) + 50, 100, -3.5, -4);
+  } else if (level === 3) {
+    spawnDynamicArcadeBall("upload_ball", "ri-folder-music-fill", Math.random() * (winW - 100) + 50, 100, 3.8, -4);
+  } else if (level === 4) {
+    if (playBtn) playBtn.style.opacity = "0.2";
+    spawnDynamicArcadeBall("play_ball", "ri-play-fill", Math.random() * (winW - 100) + 50, 100, -4.0, -4);
+  } else if (level === 5) {
+    if (nextBtn) nextBtn.style.opacity = "0.2";
+    spawnDynamicArcadeBall("next_ball", "ri-skip-forward-fill", Math.random() * (winW - 100) + 50, 100, 4.2, -4);
+  } else if (level === 6) {
+    spawnDynamicArcadeBall("core_ball", "ri-sparkling-fill", Math.random() * (winW - 100) + 50, 100, -4.5, -4);
+  }
 }
 
 function updateArcadePhysics() {
   if (!isArcadeMode) return;
+
   const winW = window.innerWidth;
   const winH = window.innerHeight;
+
   const vRect = draggableVolume.getBoundingClientRect();
-  const paddleLeft = vRect.left, paddleRight = vRect.right, paddleTop = vRect.top, paddleHeight = vRect.height;
+  const paddleLeft = vRect.left;
+  const paddleRight = vRect.right;
+  const paddleTop = vRect.top;
+  const paddleHeight = vRect.height;
 
   for (let i = 0; i < arcadeBalls.length; i++) {
     const ball = arcadeBalls[i];
@@ -2117,20 +2345,35 @@ function updateArcadePhysics() {
     ball.x += ball.vx;
     ball.y += ball.vy;
 
-    if (ball.x <= 0) { ball.x = 0; ball.vx = Math.abs(ball.vx); }
-    else if (ball.x + ball.size >= winW) { ball.x = winW - ball.size; ball.vx = -Math.abs(ball.vx); }
+    if (ball.x <= 0) {
+      ball.x = 0;
+      ball.vx = Math.abs(ball.vx);
+    } else if (ball.x + ball.size >= winW) {
+      ball.x = winW - ball.size;
+      ball.vx = -Math.abs(ball.vx);
+    }
 
-    if (ball.y <= 0) { ball.y = 0; ball.vy = Math.abs(ball.vy); }
+    if (ball.y <= 0) {
+      ball.y = 0;
+      ball.vy = Math.abs(ball.vy);
+    }
 
-    if (ball.y + ball.size >= paddleTop && ball.y <= paddleTop + paddleHeight && ball.x + ball.size >= paddleLeft && ball.x <= paddleRight) {
+    if (
+      ball.y + ball.size >= paddleTop &&
+      ball.y <= paddleTop + paddleHeight &&
+      ball.x + ball.size >= paddleLeft &&
+      ball.x <= paddleRight
+    ) {
       ball.y = paddleTop - ball.size - 2;
       ball.vy = -Math.abs(ball.vy) * 1.02;
+
       const hitCenter = ball.x + ball.size / 2;
       const paddleCenter = paddleLeft + (paddleRight - paddleLeft) / 2;
-      ball.vx = ((hitCenter - paddleCenter) / ((paddleRight - paddleLeft) / 2)) * 5.5;
+      const offset = (hitCenter - paddleCenter) / ((paddleRight - paddleLeft) / 2);
+      ball.vx = offset * 5.5;
 
       arcadeScore += 10 + arcadeLevel * 2;
-      if (arcadeScore >= 100 && arcadeLevel < 2) { arcadeLevel = 2; spawnDynamicArcadeBall("theme_ball", "ri-palette-line", Math.random() * (winW - 100) + 50, 100, -3.5, -4); }
+      checkArcadeProgression();
       updateLiveHUD();
     }
 
@@ -2138,8 +2381,10 @@ function updateArcadePhysics() {
       handleGameOverTrigger();
       return;
     }
+
     ball.el.style.transform = `translate3d(${ball.x}px, ${ball.y}px, 0)`;
   }
+
   requestAnimationFrame(updateArcadePhysics);
 }
 
@@ -2147,17 +2392,20 @@ function handleGameOverTrigger() {
   isArcadeMode = false;
   liveScoreHUD.classList.remove("active");
   draggableVolume.classList.remove("game-paddle-mode");
+
   arcadeBalls.forEach(b => { if (b.el) b.el.remove(); });
   arcadeBalls = [];
 
   if (playBtn) playBtn.style.opacity = "1";
   if (nextBtn) nextBtn.style.opacity = "1";
+
   applyControlsLayout(controlsLayout);
 
   if (arcadeScore > personalHighScore) {
     personalHighScore = arcadeScore;
     localStorage.setItem("vibe_arcade_personal_hs", personalHighScore.toString());
   }
+
   updateGlobalScore(arcadeScore);
   updateLeaderboardUI();
 
@@ -2166,25 +2414,31 @@ function handleGameOverTrigger() {
   document.getElementById("arcade-start-btn").textContent = "Play Again";
   document.getElementById("arcade-exit-btn").style.display = "inline-block";
   gameMsgOverlay.classList.add("active");
+
+  if (controlsLayout === "bouncing") requestAnimationFrame(updateNormalPhysics);
 }
 
 function endArcadeGame() {
   isArcadeMode = false;
   liveScoreHUD.classList.remove("active");
   draggableVolume.classList.remove("game-paddle-mode");
+
   arcadeBalls.forEach(b => { if (b.el) b.el.remove(); });
   arcadeBalls = [];
+
   if (playBtn) playBtn.style.opacity = "1";
   if (nextBtn) nextBtn.style.opacity = "1";
+
   applyControlsLayout(controlsLayout);
+
   document.getElementById("arcade-exit-btn").style.display = "none";
+  if (controlsLayout === "bouncing") requestAnimationFrame(updateNormalPhysics);
 }
 
 // ========================================================
 // LISTENERS & SHORTCUTS
 // ========================================================
 function setupListeners() {
-  // Player Controls
   if (playBtn) playBtn.addEventListener("click", togglePlay);
   if (nextBtn) nextBtn.addEventListener("click", nextTrack);
   if (prevBtn) prevBtn.addEventListener("click", prevTrack);
@@ -2228,66 +2482,15 @@ function setupListeners() {
   if (moodToggleBtn) moodToggleBtn.addEventListener("click", cycleMood);
   if (zenToggleBtn) zenToggleBtn.addEventListener("click", toggleZenMode);
 
-  // Collapse Full Player back to Library
-  if (collapsePlayerBtn) {
-    collapsePlayerBtn.addEventListener("click", collapseToLibrary);
-  }
+  // Minimize / Mini Player Toggle Listeners
+  if (minimizeToggleBtn) minimizeToggleBtn.addEventListener("click", toggleMinimizePlayer);
+  if (miniPlayBtn) miniPlayBtn.addEventListener("click", togglePlay);
+  if (miniNextBtn) miniNextBtn.addEventListener("click", nextTrack);
+  if (miniLikeBtn) miniLikeBtn.addEventListener("click", toggleLikeCurrentTrack);
+  if (miniExpandTrigger) miniExpandTrigger.addEventListener("click", toggleMinimizePlayer);
+  if (miniSeekContainer) miniSeekContainer.addEventListener("click", setMiniProgress);
 
-  // Mini-Player Interactions
-  if (miniPlayer) {
-    miniPlayer.addEventListener("click", (e) => {
-      if (e.target.closest(".mini-ctrl-btn")) return;
-      openFullPlayer();
-    });
-  }
-  if (miniPlayBtn) miniPlayBtn.addEventListener("click", (e) => { e.stopPropagation(); togglePlay(); });
-  if (miniNextBtn) miniNextBtn.addEventListener("click", (e) => { e.stopPropagation(); nextTrack(); });
-  if (miniQueueBtn) miniQueueBtn.addEventListener("click", (e) => { e.stopPropagation(); openPlaylistDrawer(); });
-
-  // Front Page Library Controls
-  if (libShuffleBtn) {
-    libShuffleBtn.addEventListener("click", () => {
-      isShuffle = true;
-      if (shuffleBtn) shuffleBtn.classList.add("active");
-      const nextIdx = Math.floor(Math.random() * playlist.length);
-      loadTrack(nextIdx);
-      playTrack();
-      openFullPlayer();
-    });
-  }
-
-  if (libSearchToggle) {
-    libSearchToggle.addEventListener("click", () => {
-      const active = librarySearchWrap.classList.toggle("active");
-      if (active) librarySearchInput.focus();
-      else { librarySearchInput.value = ""; renderLibrarySongs(); }
-    });
-  }
-
-  if (clearSearchBtn) {
-    clearSearchBtn.addEventListener("click", () => {
-      librarySearchInput.value = "";
-      librarySearchWrap.classList.remove("active");
-      renderLibrarySongs();
-    });
-  }
-
-  if (librarySearchInput) {
-    librarySearchInput.addEventListener("input", renderLibrarySongs);
-  }
-
-  // Library Navigation Tabs (Songs, Liked, Playlists)
-  document.querySelectorAll(".lib-tab-btn").forEach(tab => {
-    tab.addEventListener("click", () => {
-      document.querySelectorAll(".lib-tab-btn").forEach(t => t.classList.remove("active"));
-      tab.classList.add("active");
-      activeLibTab = tab.getAttribute("data-tab");
-      updateLibTabIndicator();
-      renderLibrarySongs();
-    });
-  });
-
-  // Mode Switchers on Main Page Only
+  // 5-Way Mode Switchers
   if (modeToggleBtn) modeToggleBtn.addEventListener("click", toggleAestheticMode);
   if (btnEngineRetro) btnEngineRetro.addEventListener("click", () => setAestheticEngine("retro"));
   if (btnEngineCyber) btnEngineCyber.addEventListener("click", () => setAestheticEngine("cyber"));
@@ -2299,11 +2502,16 @@ function setupListeners() {
   if (btnLayoutBouncing) btnLayoutBouncing.addEventListener("click", () => applyControlsLayout("bouncing"));
   if (btnLayoutAssist) btnLayoutAssist.addEventListener("click", () => applyControlsLayout("assist"));
 
-  if (btnAddEmojiSkin) btnAddEmojiSkin.addEventListener("click", addNewEmojiSkin);
+  // Add Custom Emoji Button
+  if (btnAddEmojiSkin) {
+    btnAddEmojiSkin.addEventListener("click", addNewEmojiSkin);
+  }
 
+  // Universal Accent Palette Chips
   document.querySelectorAll("#cyber-palette-section .palette-chip").forEach(chip => {
     chip.addEventListener("click", () => {
-      applyAestheticEngine(currentAestheticMode, chip.getAttribute("data-accent"));
+      const accent = chip.getAttribute("data-accent");
+      applyAestheticEngine(currentAestheticMode, accent);
     });
   });
 
@@ -2312,7 +2520,15 @@ function setupListeners() {
       if (refreshIcon) refreshIcon.classList.add("spin-anim");
       fetchSupabaseSongs();
       fetchGlobalHighScore();
-      setTimeout(() => window.location.reload(), 400);
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(registrations => {
+          for (let registration of registrations) registration.update();
+        });
+      }
+      setTimeout(() => {
+        if (refreshIcon) refreshIcon.classList.remove("spin-anim");
+        window.location.reload();
+      }, 500);
     });
   }
 
@@ -2327,6 +2543,7 @@ function setupListeners() {
     });
   }
 
+  // All 12 Wallpaper Buttons
   document.querySelectorAll(".bg-btn:not(#custom-bg-label)").forEach(btn => {
     btn.addEventListener("click", () => applyBackground(parseInt(btn.getAttribute("data-bg"))));
   });
@@ -2345,6 +2562,7 @@ function setupListeners() {
       tabAllBtn.classList.add("active");
       if (tabLikedBtn) tabLikedBtn.classList.remove("active");
       renderPlaylist();
+      preloadStandbyTrack();
     });
   }
 
@@ -2354,6 +2572,7 @@ function setupListeners() {
       tabLikedBtn.classList.add("active");
       if (tabAllBtn) tabAllBtn.classList.remove("active");
       renderPlaylist();
+      preloadStandbyTrack();
     });
   }
 
@@ -2368,9 +2587,11 @@ function setupListeners() {
     mainAudioInput.addEventListener("change", (e) => {
       if (!e.target.files || e.target.files.length === 0) return;
       const file = e.target.files[0];
-      const userPin = prompt(`Enter Admin PIN to upload "${file.name}":`);
-      if (userPin === ADMIN_PIN) handleMainPlaylistUpload(file);
-      else alert("Incorrect PIN!");
+      const userPin = prompt(`Enter Admin PIN to upload "${file.name}" to Main Playlist:`);
+      if (userPin === null) { e.target.value = ""; return; }
+
+      if (userPin.trim() === ADMIN_PIN) handleMainPlaylistUpload(file);
+      else alert("Incorrect PIN! Upload cancelled.");
       e.target.value = "";
     });
   }
@@ -2390,13 +2611,13 @@ function setupListeners() {
 
   let lastTouchTime = 0;
   function handleZenTrigger(e) {
-    if (isArcadeMode || e.target.closest("button") || e.target.closest("input") || e.target.closest("#seek-container") || e.target.closest(".playlist-drawer") || e.target.closest(".draggable-volume-box") || e.target.closest(".leaderboard-sidebar") || e.target.closest(".assist-ball-wrapper") || e.target.closest(".floating-score-tab")) return;
+    if (isArcadeMode || isMinimized || e.target.closest("button") || e.target.closest("input") || e.target.closest("#seek-container") || e.target.closest(".playlist-drawer") || e.target.closest(".draggable-volume-box") || e.target.closest(".leaderboard-sidebar") || e.target.closest(".assist-ball-wrapper") || e.target.closest(".floating-score-tab") || e.target.closest(".mini-player-bar")) return;
     toggleZenMode();
   }
 
   window.addEventListener("dblclick", handleZenTrigger);
   window.addEventListener("touchend", (e) => {
-    if (isArcadeMode) return;
+    if (isArcadeMode || isMinimized) return;
     const now = Date.now();
     if (now - lastTouchTime < 320 && now - lastTouchTime > 40) handleZenTrigger(e);
     lastTouchTime = now;
@@ -2415,14 +2636,12 @@ function setupListeners() {
     if (e.code === "Space") { e.preventDefault(); togglePlay(); }
     else if (e.code === "KeyZ" && !isArcadeMode) { e.preventDefault(); toggleZenMode(); }
     else if (e.code === "Escape") { 
+      if (isMinimized) toggleMinimizePlayer();
       if (isZenMode) exitZenMode(); 
       if (isArcadeMode) endArcadeGame();
-      if (currentView === "full") collapseToLibrary();
       closeAllDrawers();
     }
   });
-
-  window.addEventListener("resize", updateLibTabIndicator);
 }
 
 document.addEventListener("DOMContentLoaded", initPlayer);

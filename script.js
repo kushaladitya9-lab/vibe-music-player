@@ -72,7 +72,6 @@ const baseTracks = [
 
 const FALLBACK_ARTIST = "My Favourite Artist";
 
-// All 12 Wallpapers
 const allWallpapers = [
   { name: "Retro 1", desktop: "bg1-desktop.png", mobile: "bg1-mobile.png" },
   { name: "Retro 2", desktop: "bg2-desktop.png", mobile: "bg2-mobile.png" },
@@ -178,7 +177,6 @@ let currentTrackIndex = 0;
 let isShuffle = false;
 let isRepeat = false;
 let isZenMode = false;
-let isMinimized = false;
 let isFading = false;
 let wakeLock = null;
 
@@ -188,11 +186,13 @@ let activeAudio, standbyAudio;
 let nextPreloadedIndex = -1;
 
 let currentTab = "all"; 
+let miniCurrentTab = "all"; // 'all', 'liked', 'playlists'
 let currentAestheticMode = localStorage.getItem("vibe_aesthetic_mode") || "retro"; 
 let currentAccentHue = localStorage.getItem("vibe_accent_hue") || "gold"; 
 let controlsLayout = localStorage.getItem("vibe_controls_layout") || "bouncing"; 
 let assistSkin = localStorage.getItem("vibe_assist_skin") || "chai"; 
 let customAssistSkins = JSON.parse(localStorage.getItem("vibe_custom_assist_skins") || "[]");
+let customPlaylists = JSON.parse(localStorage.getItem("vibe_custom_playlists") || "{}");
 
 let currentBgIndex = localStorage.getItem("vibe_bg_idx") || "0";
 let customBgData = localStorage.getItem("vibe_custom_bg") || null;
@@ -218,14 +218,15 @@ let volumeSlider, volumeIcon, draggableVolume;
 let customBgInput, customBgLabel, customBgText;
 let playerContainer, controlsSection;
 
+// Mini Player & Floating Queue DOM
+let miniPlayer, miniTrackTitle, miniTrackArtist, miniHeartBtn, miniHeartIcon, miniPlayBtn, miniPlayIcon, miniNextBtn, miniSeekContainer, miniSeekProgress;
+let miniQueueContainer, miniQueueList, miniQueueCount, minimizePlayerBtn;
+let miniTabSongs, miniTabLiked, miniTabPlaylists, miniShuffleBtn;
+
 // Theme & Mode Switcher DOM
 let modeToggleBtn, modeIcon, modeLabel;
 let btnEngineRetro, btnEngineCyber, btnEngineCalm, btnEngineDark, btnEngineLight;
 let btnLayoutBouncing, btnLayoutAssist, assistSkinSection, assistChipsRow, btnAddEmojiSkin;
-
-// Minimize / Mini Player DOM
-let minimizeToggleBtn, minimizeIcon, miniPlayerBar;
-let miniTitle, miniArtist, miniPlayBtn, miniPlayIcon, miniNextBtn, miniLikeBtn, miniHeartIcon, miniExpandTrigger, miniSeekContainer, miniSeekProgress;
 
 // Leaderboard Elements
 let floatingScoreTab, leaderboardBackdrop, leaderboardSidebar;
@@ -235,6 +236,7 @@ let sidebarNickInput, sidebarSaveNickBtn;
 // Bouncing Balls & Assist Ball
 let btnDrawer, btnTheme, btnUpload;
 let balls = [];
+let isPhysicsLoopRunning = false;
 let assistBallWrapper, assistBall, assistSkinSlot, assistRadialMenu;
 let assistIdleTimer = null;
 
@@ -293,6 +295,28 @@ async function initPlayer() {
   mainHeartIcon = document.getElementById("main-heart-icon");
   mainShareBtn = document.getElementById("main-share-btn");
 
+  // Mini Player & Floating Queue DOM
+  miniPlayer = document.getElementById("mini-player");
+  miniTrackTitle = document.getElementById("mini-track-title");
+  miniTrackArtist = document.getElementById("mini-track-artist");
+  miniHeartBtn = document.getElementById("mini-heart-btn");
+  miniHeartIcon = document.getElementById("mini-heart-icon");
+  miniPlayBtn = document.getElementById("mini-play-btn");
+  miniPlayIcon = document.getElementById("mini-play-icon");
+  miniNextBtn = document.getElementById("mini-next-btn");
+  miniSeekContainer = document.getElementById("mini-seek-container");
+  miniSeekProgress = document.getElementById("mini-seek-progress");
+  
+  miniQueueContainer = document.getElementById("mini-queue-container");
+  miniQueueList = document.getElementById("mini-queue-list");
+  miniQueueCount = document.getElementById("mini-queue-count");
+  minimizePlayerBtn = document.getElementById("minimize-player-btn");
+  
+  miniTabSongs = document.getElementById("mini-tab-songs");
+  miniTabLiked = document.getElementById("mini-tab-liked");
+  miniTabPlaylists = document.getElementById("mini-tab-playlists");
+  miniShuffleBtn = document.getElementById("mini-shuffle-btn");
+
   modeToggleBtn = document.getElementById("mode-toggle-btn");
   modeIcon = document.getElementById("mode-icon");
   modeLabel = document.getElementById("mode-label");
@@ -307,20 +331,6 @@ async function initPlayer() {
   assistSkinSection = document.getElementById("assist-skin-section");
   assistChipsRow = document.getElementById("assist-chips-row");
   btnAddEmojiSkin = document.getElementById("btn-add-emoji-skin");
-
-  minimizeToggleBtn = document.getElementById("minimize-toggle-btn");
-  minimizeIcon = document.getElementById("minimize-icon");
-  miniPlayerBar = document.getElementById("mini-player-bar");
-  miniTitle = document.getElementById("mini-title");
-  miniArtist = document.getElementById("mini-artist");
-  miniPlayBtn = document.getElementById("mini-play-btn");
-  miniPlayIcon = document.getElementById("mini-play-icon");
-  miniNextBtn = document.getElementById("mini-next-btn");
-  miniLikeBtn = document.getElementById("mini-like-btn");
-  miniHeartIcon = document.getElementById("mini-heart-icon");
-  miniExpandTrigger = document.getElementById("mini-expand-trigger");
-  miniSeekContainer = document.getElementById("mini-seek-container");
-  miniSeekProgress = document.getElementById("mini-seek-progress");
 
   moodToggleBtn = document.getElementById("mood-toggle-btn");
   moodIcon = document.getElementById("mood-icon");
@@ -440,8 +450,21 @@ function applyAestheticEngine(mode, accent = "gold") {
   );
   document.body.classList.add(`theme-${mode}`, `accent-${accent}`);
 
-  const modeLabels = { retro: "Retro", cyber: "Cyber", calm: "Calm", dark: "Dark", light: "Light" };
-  const modeIcons = { retro: "ri-radio-2-line", cyber: "ri-flashlight-line", calm: "ri-leaf-line", dark: "ri-moon-fill", light: "ri-sun-fill" };
+  const modeLabels = {
+    retro: "Retro",
+    cyber: "Cyber",
+    calm: "Calm",
+    dark: "Dark",
+    light: "Light"
+  };
+
+  const modeIcons = {
+    retro: "ri-radio-2-line",
+    cyber: "ri-flashlight-line",
+    calm: "ri-leaf-line",
+    dark: "ri-moon-fill",
+    light: "ri-sun-fill"
+  };
 
   if (modeLabel) modeLabel.textContent = modeLabels[mode] || "Retro";
   if (modeIcon) modeIcon.className = modeIcons[mode] || "ri-radio-2-line";
@@ -495,23 +518,195 @@ function toggleAestheticMode() {
 }
 
 // ========================================================
-// MINI PLAYER TOGGLE (DOWNWARD / UPWARD ARROW)
+// MINI PLAYER SLIDE-DOWN, RESTORE & FLOATING QUEUE
 // ========================================================
-function toggleMinimizePlayer() {
-  isMinimized = !isMinimized;
-  document.body.classList.toggle("minimized-mode", isMinimized);
-  if (miniPlayerBar) miniPlayerBar.classList.toggle("active", isMinimized);
-  if (minimizeIcon) minimizeIcon.className = isMinimized ? "ri-arrow-up-s-line" : "ri-arrow-down-s-line";
-  if (minimizeToggleBtn) minimizeToggleBtn.title = isMinimized ? "Expand Player" : "Minimize to Mini Player";
+function minimizeToMiniPlayer() {
+  closeAllDrawers();
+  document.body.classList.add("mini-mode");
+  renderMiniQueue();
+}
 
-  if (isMinimized) {
-    closeAllDrawers();
-    exitZenMode();
+function restoreFullPlayer() {
+  document.body.classList.remove("mini-mode");
+
+  // Guaranteed restart of Bouncing Balls Physics Loop
+  if (controlsLayout === "bouncing" && !isArcadeMode) {
+    balls.forEach(b => { b.isPaused = false; });
+    if (!isPhysicsLoopRunning) {
+      isPhysicsLoopRunning = true;
+      requestAnimationFrame(updateNormalPhysics);
+    }
+  }
+}
+
+function renderMiniQueue() {
+  if (!miniQueueList) return;
+  miniQueueList.innerHTML = "";
+
+  // ----------------------------------------------------
+  // TAB 1 & 2: SONGS & LIKED (PURE FLOATING TEXT - NO BOX)
+  // ----------------------------------------------------
+  if (miniCurrentTab === "all" || miniCurrentTab === "liked") {
+    let targetTracks = playlist;
+    if (miniCurrentTab === "liked") {
+      targetTracks = playlist.filter(t => likedTrackIds.includes(t.id));
+    }
+
+    if (miniQueueCount) {
+      const label = miniCurrentTab === "liked" ? "Liked" : "Songs";
+      miniQueueCount.textContent = `${targetTracks.length} ${label}`;
+    }
+
+    if (targetTracks.length === 0) {
+      const empty = document.createElement("p");
+      empty.style.cssText = "text-align: center; color: var(--text-dim); font-size: 0.85rem; padding: 40px 0; text-shadow: 0 2px 6px rgba(0,0,0,0.6);";
+      empty.textContent = miniCurrentTab === "liked" ? "No liked songs yet." : "No songs found.";
+      miniQueueList.appendChild(empty);
+      return;
+    }
+
+    targetTracks.forEach((track) => {
+      const originalIndex = playlist.findIndex(t => t.id === track.id);
+      if (originalIndex === -1) return;
+
+      const item = document.createElement("div");
+      const isActive = originalIndex === currentTrackIndex;
+      item.className = `mini-queue-item ${isActive ? "active" : ""}`;
+
+      const displayArtist = (!track.artist || track.artist.trim() === "") ? FALLBACK_ARTIST : track.artist;
+
+      item.innerHTML = `
+        <div class="mini-queue-item-info">
+          <span class="mini-queue-item-title">${track.title}</span>
+          <span class="mini-queue-item-artist">${displayArtist}</span>
+        </div>
+        <i class="ri-volume-up-fill mini-queue-item-indicator"></i>
+      `;
+
+      item.addEventListener("click", (e) => {
+        e.stopPropagation();
+        triggerFadeTransition(() => {
+          loadTrack(originalIndex);
+          playTrack();
+        });
+      });
+
+      miniQueueList.appendChild(item);
+    });
+  } 
+  // ----------------------------------------------------
+  // TAB 3: PLAYLISTS (INLINE LIST / NO PLAYLISTS YET)
+  // ----------------------------------------------------
+  else if (miniCurrentTab === "playlists") {
+    const playlistNames = Object.keys(customPlaylists);
+
+    if (miniQueueCount) {
+      miniQueueCount.textContent = `${playlistNames.length} Playlists`;
+    }
+
+    if (playlistNames.length === 0) {
+      const emptyBox = document.createElement("div");
+      emptyBox.style.cssText = "display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 50px 0;";
+
+      const emptyMsg = document.createElement("p");
+      emptyMsg.style.cssText = "text-align: center; color: var(--text-dim); font-size: 0.95rem; text-shadow: 0 2px 8px rgba(0,0,0,0.6); font-weight: 700;";
+      emptyMsg.textContent = "No playlists yet";
+
+      const createBtn = document.createElement("button");
+      createBtn.className = "mini-bubble-btn";
+      createBtn.innerHTML = `<i class="ri-add-line"></i> <span>Create Playlist</span>`;
+      createBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        promptCreateCustomPlaylist();
+      });
+
+      emptyBox.appendChild(emptyMsg);
+      emptyBox.appendChild(createBtn);
+      miniQueueList.appendChild(emptyBox);
+      return;
+    }
+
+    // Top action row to create more playlists
+    const topActionRow = document.createElement("div");
+    topActionRow.style.cssText = "display: flex; justify-content: flex-end; padding: 2px 8px 8px;";
+    const createMoreBtn = document.createElement("button");
+    createMoreBtn.className = "mini-bubble-btn";
+    createMoreBtn.innerHTML = `<i class="ri-add-line"></i> <span>New Playlist</span>`;
+    createMoreBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      promptCreateCustomPlaylist();
+    });
+    topActionRow.appendChild(createMoreBtn);
+    miniQueueList.appendChild(topActionRow);
+
+    playlistNames.forEach((plName) => {
+      const trackIds = customPlaylists[plName] || [];
+      const item = document.createElement("div");
+      item.className = "mini-queue-item";
+
+      item.innerHTML = `
+        <div class="mini-queue-item-info">
+          <span class="mini-queue-item-title">${plName}</span>
+          <span class="mini-queue-item-artist">${trackIds.length} tracks</span>
+        </div>
+        <div class="mini-playlist-actions">
+          <i class="ri-play-circle-fill" style="color: var(--accent-primary); font-size: 1.35rem; cursor: pointer;" title="Play Playlist"></i>
+          <button class="mini-playlist-del-btn" title="Delete Playlist"><i class="ri-delete-bin-line"></i></button>
+        </div>
+      `;
+
+      item.addEventListener("click", (e) => {
+        if (e.target.closest(".mini-playlist-del-btn")) return;
+        e.stopPropagation();
+        playCustomPlaylist(plName);
+      });
+
+      const delBtn = item.querySelector(".mini-playlist-del-btn");
+      delBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (confirm(`Delete playlist "${plName}"?`)) {
+          delete customPlaylists[plName];
+          localStorage.setItem("vibe_custom_playlists", JSON.stringify(customPlaylists));
+          renderMiniQueue();
+        }
+      });
+
+      miniQueueList.appendChild(item);
+    });
+  }
+}
+
+function promptCreateCustomPlaylist() {
+  const name = prompt("Enter a name for your new playlist:");
+  if (!name || !name.trim()) return;
+  const clean = name.trim();
+  if (customPlaylists[clean]) {
+    alert("A playlist with this name already exists!");
+    return;
+  }
+  customPlaylists[clean] = [];
+  localStorage.setItem("vibe_custom_playlists", JSON.stringify(customPlaylists));
+  renderMiniQueue();
+}
+
+function playCustomPlaylist(name) {
+  const trackIds = customPlaylists[name] || [];
+  if (trackIds.length === 0) {
+    alert(`Playlist "${name}" is empty! Add tracks from the Songs drawer.`);
+    return;
+  }
+  const firstTrackId = trackIds[0];
+  const targetIdx = playlist.findIndex(t => t.id === firstTrackId);
+  if (targetIdx !== -1) {
+    triggerFadeTransition(() => {
+      loadTrack(targetIdx);
+      playTrack();
+    });
   }
 }
 
 // ========================================================
-// ASSIST BALL SKINS
+// ASSIST BALL SKINS (DEFAULT + CUSTOM EMOJI SKINS)
 // ========================================================
 function renderAssistSkinChips() {
   if (!assistChipsRow) return;
@@ -557,11 +752,15 @@ function addNewEmojiSkin() {
 
   const trimmed = userInput.trim();
   const emojiArray = Array.from(trimmed);
+
   if (emojiArray.length === 0) return;
   const pickedEmoji = emojiArray[0];
 
   const newSkinId = `emoji_${Date.now()}`;
-  customAssistSkins.push({ id: newSkinId, emoji: pickedEmoji });
+  customAssistSkins.push({
+    id: newSkinId,
+    emoji: pickedEmoji
+  });
 
   localStorage.setItem("vibe_custom_assist_skins", JSON.stringify(customAssistSkins));
   applyAssistSkin(newSkinId);
@@ -573,7 +772,9 @@ function deleteCustomEmojiSkin(skinId) {
   customAssistSkins = customAssistSkins.filter(s => s.id !== skinId);
   localStorage.setItem("vibe_custom_assist_skins", JSON.stringify(customAssistSkins));
 
-  if (assistSkin === skinId) applyAssistSkin("chai");
+  if (assistSkin === skinId) {
+    applyAssistSkin("chai");
+  }
   renderAssistSkinChips();
 }
 
@@ -599,7 +800,10 @@ function applyControlsLayout(layout) {
     if (assistBallWrapper) assistBallWrapper.style.display = "none";
     if (assistRadialMenu) assistRadialMenu.classList.remove("active");
 
-    requestAnimationFrame(updateNormalPhysics);
+    if (!isPhysicsLoopRunning) {
+      isPhysicsLoopRunning = true;
+      requestAnimationFrame(updateNormalPhysics);
+    }
   }
 }
 
@@ -732,7 +936,7 @@ function applyAssistSkin(skin) {
 }
 
 // ========================================================
-// ASSIST BALL DRAG & SNAP
+// ASSIST BALL: EDGE SNAPPING, 50% HIDE & DRAG
 // ========================================================
 function resetAssistIdleTimer() {
   if (!assistBallWrapper) return;
@@ -964,6 +1168,7 @@ function rebuildPlaylist() {
 
   updateTrackCount();
   renderPlaylist();
+  renderMiniQueue();
 }
 
 async function handleMainPlaylistUpload(file) {
@@ -1042,7 +1247,7 @@ document.addEventListener('visibilitychange', () => {
 
 function getNextTrackIndex() {
   let activePool = playlist;
-  if (currentTab === "liked") {
+  if (currentTab === "liked" || miniCurrentTab === "liked") {
     activePool = playlist.filter(t => likedTrackIds.includes(t.id));
   }
 
@@ -1083,12 +1288,25 @@ function loadTrack(index) {
   currentTrackIndex = index;
   const track = playlist[currentTrackIndex];
 
+  // Update Main Player
   if (trackTitle) trackTitle.textContent = track.title || "Unknown Track";
-  if (miniTitle) miniTitle.textContent = track.title || "Unknown Track";
+  if (trackArtist) {
+    trackArtist.textContent = (!track.artist || track.artist.trim() === "") ? FALLBACK_ARTIST : track.artist;
+  }
 
-  const artistStr = (!track.artist || track.artist.trim() === "") ? FALLBACK_ARTIST : track.artist;
-  if (trackArtist) trackArtist.textContent = artistStr;
-  if (miniArtist) miniArtist.textContent = artistStr;
+  // Update Mini Player
+  if (miniTrackTitle) miniTrackTitle.textContent = track.title || "Unknown Track";
+  if (miniTrackArtist) {
+    miniTrackArtist.textContent = (!track.artist || track.artist.trim() === "") ? FALLBACK_ARTIST : track.artist;
+  }
+
+  // Update Floating Mini List Active Row
+  if (miniQueueList) {
+    document.querySelectorAll(".mini-queue-item").forEach((item) => {
+      const isCur = item.querySelector(".mini-queue-item-title")?.textContent === track.title;
+      item.classList.toggle("active", isCur);
+    });
+  }
 
   activeAudio.src = track.src;
   activeAudio.currentTime = 0;
@@ -1170,7 +1388,9 @@ function prevTrack() {
   standbyAudio.pause();
   triggerFadeTransition(() => {
     let activePool = playlist;
-    if (currentTab === "liked") activePool = playlist.filter(t => likedTrackIds.includes(t.id));
+    if (currentTab === "liked" || miniCurrentTab === "liked") {
+      activePool = playlist.filter(t => likedTrackIds.includes(t.id));
+    }
     if (activePool.length === 0) activePool = playlist;
 
     const currentInPoolIdx = activePool.findIndex(t => t.id === playlist[currentTrackIndex].id);
@@ -1256,17 +1476,7 @@ function setupDualAudioListeners(audioNode) {
     standbyAudio = temp;
 
     currentTrackIndex = nextPreloadedIndex !== -1 ? nextPreloadedIndex : getNextTrackIndex();
-    const track = playlist[currentTrackIndex];
-
-    if (trackTitle) trackTitle.textContent = track.title || "Unknown Track";
-    if (miniTitle) miniTitle.textContent = track.title || "Unknown Track";
-    const artistStr = (!track.artist || track.artist.trim() === "") ? FALLBACK_ARTIST : track.artist;
-    if (trackArtist) trackArtist.textContent = artistStr;
-    if (miniArtist) miniArtist.textContent = artistStr;
-
-    updateHeartButton();
-    updateMediaSessionMetadata(track);
-
+    loadTrack(currentTrackIndex);
     playTrack();
     preloadStandbyTrack();
   });
@@ -1326,9 +1536,10 @@ function updateHeartButton() {
     mainHeartBtn.classList.toggle("liked", isLiked);
     mainHeartIcon.className = isLiked ? "ri-heart-fill" : "ri-heart-line";
   }
-  if (miniHeartIcon) {
+
+  if (miniHeartBtn) {
+    miniHeartBtn.classList.toggle("liked", isLiked);
     miniHeartIcon.className = isLiked ? "ri-heart-fill" : "ri-heart-line";
-    miniHeartIcon.style.color = isLiked ? "var(--heart-red)" : "inherit";
   }
 }
 
@@ -1344,6 +1555,7 @@ function toggleLikeCurrentTrack() {
   updateHeartButton();
   updateLikedCount();
   renderPlaylist();
+  renderMiniQueue();
 }
 
 // Share Track
@@ -1462,8 +1674,8 @@ async function editTrackInfo(trackId) {
   if (playlist[currentTrackIndex] && playlist[currentTrackIndex].id === trackId) {
     if (trackTitle) trackTitle.textContent = finalTitle;
     if (trackArtist) trackArtist.textContent = finalArtist;
-    if (miniTitle) miniTitle.textContent = finalTitle;
-    if (miniArtist) miniArtist.textContent = finalArtist;
+    if (miniTrackTitle) miniTrackTitle.textContent = finalTitle;
+    if (miniTrackArtist) miniTrackArtist.textContent = finalArtist;
     updateMediaSessionMetadata(playlist[currentTrackIndex]);
   }
 }
@@ -1538,6 +1750,8 @@ async function deleteTrack(trackId) {
     pauseTrack();
     if (trackTitle) trackTitle.textContent = "No Songs Available";
     if (trackArtist) trackArtist.textContent = "";
+    if (miniTrackTitle) miniTrackTitle.textContent = "No Songs Available";
+    if (miniTrackArtist) miniTrackArtist.textContent = "";
     return;
   }
 
@@ -1710,8 +1924,8 @@ function handleCustomBgUpload(e) {
 function setupSwipeGestures() {
   let touchStartX = 0;
   window.addEventListener("touchstart", (e) => { touchStartX = e.touches[0].clientX; }, { passive: true });
-  window.addEventListener("touched", (e) => {
-    if (isArcadeMode || isMinimized || e.target.closest("#volume-slider") || e.target.closest("#seek-container") || e.target.closest(".playlist-drawer") || e.target.closest(".assist-ball-wrapper") || e.target.closest(".floating-score-tab") || e.target.closest(".mini-player-bar")) return;
+  window.addEventListener("touchend", (e) => {
+    if (isArcadeMode || document.body.classList.contains("mini-mode") || e.target.closest("#volume-slider") || e.target.closest("#seek-container") || e.target.closest(".playlist-drawer") || e.target.closest(".assist-ball-wrapper") || e.target.closest(".floating-score-tab") || e.target.closest(".mini-queue-container")) return;
     const touchEndX = e.changedTouches[0].clientX;
     const diffX = touchEndX - touchStartX;
     if (Math.abs(diffX) > 60) {
@@ -1800,6 +2014,7 @@ function renderPlaylist() {
       updateHeartButton();
       updateLikedCount();
       renderPlaylist();
+      renderMiniQueue();
     });
 
     playlistScrollList.appendChild(item);
@@ -1922,7 +2137,7 @@ function initRainAudio() {
   }
 }
 
-// Bouncing Balls (Normal Mode)
+// Bouncing Balls (Normal Mode - Reliable Physics Restart)
 function setupBouncingBalls() {
   const winW = window.innerWidth;
   const winH = window.innerHeight;
@@ -1940,13 +2155,17 @@ function setupBouncingBalls() {
     ball.el.addEventListener("touchend", () => { if (!isArcadeMode) setTimeout(() => { ball.isPaused = false; }, 800); });
   });
 
-  if (controlsLayout === "bouncing") {
+  if (controlsLayout === "bouncing" && !isPhysicsLoopRunning) {
+    isPhysicsLoopRunning = true;
     requestAnimationFrame(updateNormalPhysics);
   }
 }
 
 function updateNormalPhysics() {
-  if (isArcadeMode || controlsLayout === "assist") return;
+  if (isArcadeMode || controlsLayout === "assist" || document.body.classList.contains("mini-mode")) {
+    isPhysicsLoopRunning = false;
+    return;
+  }
 
   const winW = window.innerWidth;
   const winH = window.innerHeight;
@@ -2000,6 +2219,7 @@ function updateNormalPhysics() {
     });
   }
 
+  isPhysicsLoopRunning = true;
   requestAnimationFrame(updateNormalPhysics);
 }
 
@@ -2257,6 +2477,7 @@ function prepareArcadeStart() {
 async function requestStartArcade() {
   exitZenMode();
   closeAllDrawers();
+  restoreFullPlayer();
   isArcadeMode = true;
   arcadeScore = 0;
   arcadeLevel = 1;
@@ -2415,7 +2636,10 @@ function handleGameOverTrigger() {
   document.getElementById("arcade-exit-btn").style.display = "inline-block";
   gameMsgOverlay.classList.add("active");
 
-  if (controlsLayout === "bouncing") requestAnimationFrame(updateNormalPhysics);
+  if (controlsLayout === "bouncing") {
+    isPhysicsLoopRunning = true;
+    requestAnimationFrame(updateNormalPhysics);
+  }
 }
 
 function endArcadeGame() {
@@ -2432,21 +2656,106 @@ function endArcadeGame() {
   applyControlsLayout(controlsLayout);
 
   document.getElementById("arcade-exit-btn").style.display = "none";
-  if (controlsLayout === "bouncing") requestAnimationFrame(updateNormalPhysics);
+  if (controlsLayout === "bouncing") {
+    isPhysicsLoopRunning = true;
+    requestAnimationFrame(updateNormalPhysics);
+  }
 }
 
 // ========================================================
 // LISTENERS & SHORTCUTS
 // ========================================================
 function setupListeners() {
+  // Main Controls
   if (playBtn) playBtn.addEventListener("click", togglePlay);
   if (nextBtn) nextBtn.addEventListener("click", nextTrack);
   if (prevBtn) prevBtn.addEventListener("click", prevTrack);
+
+  // Mini Player Controls
+  if (miniPlayBtn) {
+    miniPlayBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      togglePlay();
+    });
+  }
+  if (miniNextBtn) {
+    miniNextBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      nextTrack();
+    });
+  }
+  if (miniHeartBtn) {
+    miniHeartBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      toggleLikeCurrentTrack();
+    });
+  }
+  if (miniSeekContainer) {
+    miniSeekContainer.addEventListener("click", (e) => {
+      e.stopPropagation();
+      setMiniProgress(e);
+    });
+  }
+
+  // Minimize Button (Slide Down)
+  if (minimizePlayerBtn) {
+    minimizePlayerBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      minimizeToMiniPlayer();
+    });
+  }
+
+  // Expand back to Full Player on Mini Bar Click
+  if (miniPlayer) {
+    miniPlayer.addEventListener("click", () => {
+      restoreFullPlayer();
+    });
+  }
+
+  // Mini Floating Navigation Tabs
+  if (miniTabSongs) {
+    miniTabSongs.addEventListener("click", () => {
+      miniCurrentTab = "all";
+      miniTabSongs.classList.add("active");
+      if (miniTabLiked) miniTabLiked.classList.remove("active");
+      if (miniTabPlaylists) miniTabPlaylists.classList.remove("active");
+      renderMiniQueue();
+    });
+  }
+  if (miniTabLiked) {
+    miniTabLiked.addEventListener("click", () => {
+      miniCurrentTab = "liked";
+      miniTabLiked.classList.add("active");
+      if (miniTabSongs) miniTabSongs.classList.remove("active");
+      if (miniTabPlaylists) miniTabPlaylists.classList.remove("active");
+      renderMiniQueue();
+    });
+  }
+  if (miniTabPlaylists) {
+    miniTabPlaylists.addEventListener("click", () => {
+      miniCurrentTab = "playlists";
+      miniTabPlaylists.classList.add("active");
+      if (miniTabSongs) miniTabSongs.classList.remove("active");
+      if (miniTabLiked) miniTabLiked.classList.remove("active");
+      renderMiniQueue();
+    });
+  }
+
+  // Mini Shuffle Bubble
+  if (miniShuffleBtn) {
+    miniShuffleBtn.addEventListener("click", () => {
+      isShuffle = !isShuffle;
+      if (shuffleBtn) shuffleBtn.classList.toggle("active", isShuffle);
+      miniShuffleBtn.classList.toggle("active", isShuffle);
+      preloadStandbyTrack();
+    });
+  }
 
   if (shuffleBtn) {
     shuffleBtn.addEventListener("click", () => {
       isShuffle = !isShuffle;
       shuffleBtn.classList.toggle("active", isShuffle);
+      if (miniShuffleBtn) miniShuffleBtn.classList.toggle("active", isShuffle);
       preloadStandbyTrack();
     });
   }
@@ -2481,14 +2790,6 @@ function setupListeners() {
   if (mainShareBtn) mainShareBtn.addEventListener("click", shareCurrentTrack);
   if (moodToggleBtn) moodToggleBtn.addEventListener("click", cycleMood);
   if (zenToggleBtn) zenToggleBtn.addEventListener("click", toggleZenMode);
-
-  // Minimize / Mini Player Toggle Listeners
-  if (minimizeToggleBtn) minimizeToggleBtn.addEventListener("click", toggleMinimizePlayer);
-  if (miniPlayBtn) miniPlayBtn.addEventListener("click", togglePlay);
-  if (miniNextBtn) miniNextBtn.addEventListener("click", nextTrack);
-  if (miniLikeBtn) miniLikeBtn.addEventListener("click", toggleLikeCurrentTrack);
-  if (miniExpandTrigger) miniExpandTrigger.addEventListener("click", toggleMinimizePlayer);
-  if (miniSeekContainer) miniSeekContainer.addEventListener("click", setMiniProgress);
 
   // 5-Way Mode Switchers
   if (modeToggleBtn) modeToggleBtn.addEventListener("click", toggleAestheticMode);
@@ -2611,13 +2912,13 @@ function setupListeners() {
 
   let lastTouchTime = 0;
   function handleZenTrigger(e) {
-    if (isArcadeMode || isMinimized || e.target.closest("button") || e.target.closest("input") || e.target.closest("#seek-container") || e.target.closest(".playlist-drawer") || e.target.closest(".draggable-volume-box") || e.target.closest(".leaderboard-sidebar") || e.target.closest(".assist-ball-wrapper") || e.target.closest(".floating-score-tab") || e.target.closest(".mini-player-bar")) return;
+    if (isArcadeMode || document.body.classList.contains("mini-mode") || e.target.closest("button") || e.target.closest("input") || e.target.closest("#seek-container") || e.target.closest(".playlist-drawer") || e.target.closest(".draggable-volume-box") || e.target.closest(".leaderboard-sidebar") || e.target.closest(".assist-ball-wrapper") || e.target.closest(".floating-score-tab") || e.target.closest(".mini-queue-container")) return;
     toggleZenMode();
   }
 
   window.addEventListener("dblclick", handleZenTrigger);
   window.addEventListener("touchend", (e) => {
-    if (isArcadeMode || isMinimized) return;
+    if (isArcadeMode || document.body.classList.contains("mini-mode")) return;
     const now = Date.now();
     if (now - lastTouchTime < 320 && now - lastTouchTime > 40) handleZenTrigger(e);
     lastTouchTime = now;
@@ -2636,9 +2937,9 @@ function setupListeners() {
     if (e.code === "Space") { e.preventDefault(); togglePlay(); }
     else if (e.code === "KeyZ" && !isArcadeMode) { e.preventDefault(); toggleZenMode(); }
     else if (e.code === "Escape") { 
-      if (isMinimized) toggleMinimizePlayer();
       if (isZenMode) exitZenMode(); 
       if (isArcadeMode) endArcadeGame();
+      if (document.body.classList.contains("mini-mode")) restoreFullPlayer();
       closeAllDrawers();
     }
   });

@@ -36,9 +36,9 @@
   <div class="scrim-overlay"></div>
   <canvas id="weather-canvas"></canvas>
 
-  <!-- Top Action Container (Aesthetic Mode, Mood, Zen, Game, Sync & Minimize Arrow) -->
+  <!-- Top Action Container -->
   <div class="scene-switcher-container">
-    <button class="scene-btn mode-btn" id="mode-toggle-btn" title="Cycle Aesthetic Engine (Retro / Cyber / Calm / Dark / Light)">
+    <button class="scene-btn mode-btn" id="mode-toggle-btn" title="Cycle Aesthetic Engine">
       <i class="ri-radio-2-line" id="mode-icon"></i>
       <span id="mode-label">Retro</span>
     </button>
@@ -57,8 +57,9 @@
     <button class="scene-btn refresh-btn" id="app-refresh-btn" title="Check Updates & Sync App">
       <i class="ri-refresh-line" id="refresh-icon"></i>
     </button>
-    <button class="scene-btn minimize-btn" id="minimize-toggle-btn" title="Minimize to Mini Player">
-      <i class="ri-arrow-down-s-line" id="minimize-icon"></i>
+    <!-- Downward Arrow to Minimize Player -->
+    <button class="scene-btn minimize-btn" id="minimize-player-btn" title="Minimize to Mini Player">
+      <i class="ri-arrow-down-s-line"></i>
     </button>
   </div>
 
@@ -122,6 +123,7 @@
       <div class="assist-skin-slot" id="assist-skin-slot"></div>
     </div>
     
+    <!-- Assist Ball Quick Menu Popup -->
     <div class="assist-radial-menu" id="assist-radial-menu">
       <button class="assist-action-btn" id="assist-btn-songs" title="Songs & Playlists">
         <i class="ri-play-list-2-fill"></i>
@@ -142,13 +144,13 @@
     </div>
   </div>
 
-  <!-- Transparent Draggable Volume Pill -->
+  <!-- Draggable Volume Pill -->
   <div class="draggable-volume-box" id="draggable-volume" title="Drag anywhere!">
     <i class="ri-volume-up-line" id="volume-icon" title="Mute/Unmute"></i>
     <input type="range" id="volume-slider" min="0" max="1" step="0.01" value="1">
   </div>
 
-  <!-- Main Player Container -->
+  <!-- Main Full Player Container -->
   <main class="player-container" id="player-container">
     <div class="player-content">
       
@@ -202,26 +204,56 @@
     </div>
   </main>
 
-  <!-- ========================================================
-       NEW BOTTOM MINI PLAYER BAR (ACTIVATED ON DOWNWARD ARROW)
-       ======================================================== -->
-  <div class="mini-player-bar" id="mini-player-bar">
-    <div class="mini-seek-bar" id="mini-seek-container">
-      <div class="mini-seek-progress" id="mini-seek-progress"></div>
+  <!-- Borderless Floating Songs View (Mini Player Mode) -->
+  <div class="mini-queue-container" id="mini-queue-container">
+    
+    <!-- Top Navigation Row: Songs | Liked | Playlists -->
+    <div class="mini-queue-nav-tabs">
+      <button class="mini-tab-btn active" id="mini-tab-songs">
+        <i class="ri-music-2-line"></i> <span>Songs</span>
+      </button>
+      <button class="mini-tab-btn" id="mini-tab-liked">
+        <i class="ri-heart-line"></i> <span>Liked</span>
+      </button>
+      <button class="mini-tab-btn" id="mini-tab-playlists">
+        <i class="ri-play-list-line"></i> <span>Playlists</span>
+      </button>
     </div>
+
+    <!-- Actions Sub-Row: Shuffle Bubble + Track Count -->
+    <div class="mini-queue-action-row">
+      <button class="mini-bubble-btn" id="mini-shuffle-btn" title="Toggle Shuffle">
+        <i class="ri-shuffle-line"></i>
+        <span>Shuffle</span>
+      </button>
+      <span class="mini-track-badge" id="mini-queue-count">0 Songs</span>
+    </div>
+
+    <!-- Borderless Floating Songs List -->
+    <div class="mini-queue-list" id="mini-queue-list"></div>
+  </div>
+
+  <!-- Sleek Bottom Floating Mini Player Bar -->
+  <div class="mini-player-bar" id="mini-player" title="Tap to expand full player">
+    <!-- Slim Pinned Live Seek Bar -->
+    <div class="mini-progress-track" id="mini-seek-container" title="Seek track">
+      <div class="mini-progress-fill" id="mini-seek-progress"></div>
+    </div>
+    
     <div class="mini-player-content">
-      <div class="mini-track-info" id="mini-expand-trigger">
-        <div class="mini-title" id="mini-title">Loading Track...</div>
-        <div class="mini-artist" id="mini-artist">Artist Name</div>
+      <div class="mini-track-info">
+        <span class="mini-title" id="mini-track-title">Loading Track...</span>
+        <span class="mini-artist" id="mini-track-artist">My Favourite Artist</span>
       </div>
-      <div class="mini-controls">
-        <button class="mini-ctrl-btn" id="mini-like-btn" title="Like track">
+
+      <div class="mini-controls-row">
+        <button class="mini-btn mini-heart-btn" id="mini-heart-btn" title="Like track">
           <i class="ri-heart-line" id="mini-heart-icon"></i>
         </button>
-        <button class="mini-ctrl-btn play-btn" id="mini-play-btn" title="Play/Pause">
+        <button class="mini-btn mini-play-btn" id="mini-play-btn" title="Play / Pause">
           <i class="ri-play-fill" id="mini-play-icon"></i>
         </button>
-        <button class="mini-ctrl-btn" id="mini-next-btn" title="Next track">
+        <button class="mini-btn mini-next-btn" id="mini-next-btn" title="Next track">
           <i class="ri-skip-forward-fill"></i>
         </button>
       </div>
@@ -308,7 +340,7 @@
       </div>
     </div>
 
-    <!-- UI Controls Layout Mode (Bouncing Balls vs Assist Ball) -->
+    <!-- UI Controls Layout Mode -->
     <div class="custom-picker-section">
       <span class="picker-title"><i class="ri-layout-masonry-line"></i> UI Controls Layout:</span>
       <div class="picker-grid">

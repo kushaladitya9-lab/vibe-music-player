@@ -36,7 +36,12 @@
   <div class="scrim-overlay"></div>
   <canvas id="weather-canvas"></canvas>
 
-  <!-- Top Action Container -->
+  <!-- Dedicated Top-Left Minimize Chevron (Phone/Laptop Screen Par Hamesha Visible) -->
+  <button class="floating-minimize-btn" id="minimize-player-btn" title="Minimize to Mini Player (or Swipe Down)">
+    <i class="ri-arrow-down-s-line"></i>
+  </button>
+
+  <!-- Top Action Container (Aesthetic Modes, Mood, Zen, Game & Sync) -->
   <div class="scene-switcher-container">
     <button class="scene-btn mode-btn" id="mode-toggle-btn" title="Cycle Aesthetic Engine">
       <i class="ri-radio-2-line" id="mode-icon"></i>
@@ -56,10 +61,6 @@
     </button>
     <button class="scene-btn refresh-btn" id="app-refresh-btn" title="Check Updates & Sync App">
       <i class="ri-refresh-line" id="refresh-icon"></i>
-    </button>
-    <!-- Downward Arrow to Minimize Player -->
-    <button class="scene-btn minimize-btn" id="minimize-player-btn" title="Minimize to Mini Player">
-      <i class="ri-arrow-down-s-line"></i>
     </button>
   </div>
 

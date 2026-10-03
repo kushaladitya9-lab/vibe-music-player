@@ -119,35 +119,12 @@ body.theme-light .draggable-volume-box,
 body.theme-light .mini-player-bar,
 body.theme-light .mini-bubble-btn,
 body.theme-light .mini-track-badge,
-body.theme-light .mini-tab-btn {
+body.theme-light .mini-tab-btn,
+body.theme-light .floating-minimize-btn {
   background: rgba(255, 255, 255, 0.88) !important;
   color: #0f172a !important;
   border-color: rgba(15, 23, 42, 0.12) !important;
-  box-shadow: 0 4px 18px rgba(180, 160, 120, 0.18) !important;
 }
-body.theme-light .scene-btn:hover { background: #ffffff !important; }
-body.theme-light .search-box-container input {
-  color: #0f172a;
-  background: rgba(0, 0, 0, 0.04);
-}
-body.theme-light .tab-btn { color: rgba(15, 23, 42, 0.7); }
-body.theme-light .tab-btn.active {
-  background: rgba(0, 0, 0, 0.08);
-  color: #0f172a;
-}
-body.theme-light .playlist-item:hover { background: rgba(0, 0, 0, 0.04); }
-body.theme-light .grid-btn { color: #0f172a; }
-body.theme-light .palette-chip { color: #0f172a; }
-body.theme-light .close-drawer-btn {
-  background: rgba(0, 0, 0, 0.06);
-  color: #0f172a;
-}
-body.theme-light .leaderboard-sidebar h4,
-body.theme-light .leaderboard-card .card-value {
-  color: #0f172a;
-}
-body.theme-light #sidebar-nick-input { color: #0f172a; }
-body.theme-light .mini-title { color: #0f172a !important; }
 body.theme-light .mini-tab-btn.active {
   background: #0f172a !important;
   color: #ffffff !important;
@@ -156,6 +133,10 @@ body.theme-light .mini-queue-item-title {
   color: #0f172a !important;
   text-shadow: none !important;
 }
+body.theme-light .mini-queue-item:hover {
+  background: transparent !important;
+}
+body.theme-light .mini-title { color: #0f172a !important; }
 
 /* ACCENTS */
 body.accent-gold {
@@ -298,7 +279,8 @@ body.zen-mode .assist-ball-wrapper,
 body.zen-mode .draggable-volume-box,
 body.zen-mode .floating-score-tab,
 body.zen-mode .mini-player-bar,
-body.zen-mode .mini-queue-container {
+body.zen-mode .mini-queue-container,
+body.zen-mode .floating-minimize-btn {
   opacity: 0 !important;
   pointer-events: none !important;
   transform: translateY(15px) scale(0.96) !important;
@@ -306,7 +288,7 @@ body.zen-mode .mini-queue-container {
 }
 
 /* ========================================================
-   MINI PLAYER MODE (COLLAPSED VIEW)
+   MINI PLAYER MODE (COLLAPSED FLOATING QUEUE & PLAYER)
    ======================================================== */
 body.mini-mode .player-container {
   transform: translateY(120vh) !important;
@@ -318,7 +300,8 @@ body.mini-mode .scene-switcher-container,
 body.mini-mode .bounce-ball,
 body.mini-mode .assist-ball-wrapper,
 body.mini-mode .floating-score-tab,
-body.mini-mode .draggable-volume-box {
+body.mini-mode .draggable-volume-box,
+body.mini-mode .floating-minimize-btn {
   opacity: 0 !important;
   pointer-events: none !important;
   transform: translateY(-20px) scale(0.9) !important;
@@ -380,7 +363,44 @@ body.mini-mode .mini-queue-container {
   z-index: 2;
 }
 
-/* Top Quick Switcher Pill */
+/* ========================================================
+   DEDICATED TOP-LEFT MINIMIZE BUTTON (PHONE & LAPTOP SAFE)
+   ======================================================== */
+.floating-minimize-btn {
+  position: fixed !important;
+  top: clamp(14px, 2.5vh, 24px);
+  left: clamp(12px, 3.5vw, 24px);
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: rgba(18, 22, 28, 0.78);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid var(--glass-border);
+  color: inherit;
+  display: grid;
+  place-items: center;
+  font-size: 1.35rem;
+  cursor: pointer;
+  z-index: 25;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.35);
+  transition: var(--transition);
+}
+
+.floating-minimize-btn i {
+  color: var(--accent-primary);
+  pointer-events: none;
+  transition: transform 0.25s ease;
+}
+
+.floating-minimize-btn:hover {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 14px var(--accent-glow);
+  transform: scale(1.08);
+}
+.floating-minimize-btn:hover i { transform: translateY(2px); }
+
+/* Top Quick Switcher Pill (Centered & Overflow Safe) */
 .scene-switcher-container {
   position: fixed;
   top: clamp(14px, 2.5vh, 24px);
@@ -391,8 +411,12 @@ body.mini-mode .mini-queue-container {
   align-items: center;
   gap: 6px;
   transition: var(--transition);
-  max-width: 96vw;
+  max-width: calc(100vw - 110px);
+  overflow-x: auto;
+  padding: 2px 4px;
+  scrollbar-width: none;
 }
+.scene-switcher-container::-webkit-scrollbar { display: none; }
 
 .scene-btn {
   background: rgba(18, 22, 28, 0.78);
@@ -410,6 +434,7 @@ body.mini-mode .mini-queue-container {
   cursor: pointer;
   box-shadow: 0 4px 15px rgba(0,0,0,0.35);
   transition: var(--transition);
+  white-space: nowrap;
 }
 
 .scene-btn:hover {
@@ -422,9 +447,6 @@ body.mini-mode .mini-queue-container {
 .arcade-btn i { color: var(--accent-secondary); }
 .refresh-btn { padding: 6px 9px; }
 .refresh-btn i { font-size: 0.95rem; color: #54a0ff; }
-.minimize-btn { padding: 6px 10px; }
-.minimize-btn i { font-size: 1.15rem; color: var(--accent-primary); transition: transform 0.25s ease; }
-.minimize-btn:hover i { transform: translateY(2px); }
 .spin-anim { animation: spin 0.7s cubic-bezier(0.4, 0, 0.2, 1) infinite; }
 
 /* Freely Movable Trophy Tab */
@@ -913,16 +935,16 @@ body.mini-mode .mini-queue-container {
 .play-pause-btn:active { transform: scale(0.92); }
 
 /* ========================================================
-   BORDERLESS FLOATING SONGS & PLAYLIST VIEW (NO BOX/NO LIGHT)
+   RESPONSIVE FULL-SCREEN FLOATING SONGS (BORDERLESS / SCREEN FILL)
    ======================================================== */
 .mini-queue-container {
   position: fixed;
-  top: clamp(14px, 2.5vh, 22px);
-  bottom: calc(clamp(16px, 3vh, 26px) + 74px);
-  left: 50%;
-  transform: translateX(-50%) translateY(40px);
-  width: calc(100% - 32px);
-  max-width: 520px;
+  top: clamp(14px, 2.5vh, 26px);
+  bottom: calc(clamp(16px, 3vh, 26px) + 76px);
+  left: 0;
+  right: 0;
+  width: 100vw;
+  max-width: 100vw;
   height: auto;
   background: transparent !important;
   border: none !important;
@@ -931,10 +953,13 @@ body.mini-mode .mini-queue-container {
   -webkit-backdrop-filter: none !important;
   display: flex;
   flex-direction: column;
+  align-items: center;
   z-index: 99;
   opacity: 0;
   pointer-events: none;
+  transform: translateY(30px);
   transition: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.35s ease;
+  padding: 0 clamp(16px, 5vw, 60px);
 }
 
 /* Floating Navigation Tabs */
@@ -942,9 +967,11 @@ body.mini-mode .mini-queue-container {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: clamp(8px, 1.5vw, 14px);
   margin-bottom: 6px;
   flex-shrink: 0;
+  width: 100%;
+  max-width: min(92vw, 860px);
 }
 
 .mini-tab-btn {
@@ -953,19 +980,19 @@ body.mini-mode .mini-queue-container {
   -webkit-backdrop-filter: blur(18px);
   border: 1px solid var(--glass-border);
   color: inherit;
-  padding: 6px 14px;
+  padding: 7px 18px;
   border-radius: 50px;
-  font-size: 0.78rem;
+  font-size: clamp(0.76rem, 1vw, 0.84rem);
   font-weight: 700;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.25);
   transition: var(--transition);
 }
 
-.mini-tab-btn i { font-size: 0.88rem; color: var(--accent-primary); }
+.mini-tab-btn i { font-size: 0.95rem; color: var(--accent-primary); }
 .mini-tab-btn:hover { border-color: var(--accent-primary); transform: translateY(-1px); }
 .mini-tab-btn.active {
   background: var(--accent-primary) !important;
@@ -980,8 +1007,10 @@ body.mini-mode .mini-queue-container {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 4px 6px 8px;
+  padding: 4px 10px 8px;
   flex-shrink: 0;
+  width: 100%;
+  max-width: min(92vw, 860px);
 }
 
 .mini-bubble-btn {
@@ -990,9 +1019,9 @@ body.mini-mode .mini-queue-container {
   -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--glass-border);
   color: inherit;
-  padding: 5px 12px;
+  padding: 6px 14px;
   border-radius: 50px;
-  font-size: 0.74rem;
+  font-size: clamp(0.72rem, 0.9vw, 0.78rem);
   font-weight: 700;
   cursor: pointer;
   display: inline-flex;
@@ -1002,7 +1031,7 @@ body.mini-mode .mini-queue-container {
   transition: var(--transition);
 }
 
-.mini-bubble-btn i { font-size: 0.85rem; color: var(--accent-primary); }
+.mini-bubble-btn i { font-size: 0.9rem; color: var(--accent-primary); }
 .mini-bubble-btn:hover { border-color: var(--accent-primary); }
 .mini-bubble-btn.active {
   border-color: var(--accent-primary);
@@ -1011,38 +1040,40 @@ body.mini-mode .mini-queue-container {
 }
 
 .mini-track-badge {
-  font-size: 0.74rem;
+  font-size: clamp(0.72rem, 0.9vw, 0.78rem);
   font-weight: 700;
   color: var(--text-dim);
   background: rgba(18, 22, 28, 0.55);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   border: 1px solid var(--glass-border);
-  padding: 5px 12px;
+  padding: 6px 14px;
   border-radius: 50px;
 }
 
-/* PURE FLOATING TEXT LIST (COMPLETELY BORDERLESS & TRANSPARENT) */
+/* Screen Filling Floating List */
 .mini-queue-list {
   flex: 1;
+  width: 100%;
+  max-width: min(92vw, 860px);
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  padding: 6px 4px;
-  gap: 4px;
-  mask-image: linear-gradient(to bottom, transparent 0%, black 3%, black 97%, transparent 100%);
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 3%, black 97%, transparent 100%);
+  padding: 6px 8px;
+  gap: clamp(4px, 1vh, 8px);
+  mask-image: linear-gradient(to bottom, transparent 0%, black 2.5%, black 97.5%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 2.5%, black 97.5%, transparent 100%);
 }
 
 .mini-queue-list::-webkit-scrollbar { width: 3px; }
 .mini-queue-list::-webkit-scrollbar-thumb { background: rgba(128, 128, 128, 0.25); border-radius: 4px; }
 
-/* Standalone Floating Song Item - Absolutely NO BOX and NO BACKDROP */
+/* Pure Text Floating Item - ABSOLUTELY NO BOX AND NO LIGHT */
 .mini-queue-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 10px;
+  padding: clamp(8px, 1.4vh, 12px) 14px;
   cursor: pointer;
   background: transparent !important;
   border: none !important;
@@ -1057,7 +1088,7 @@ body.mini-mode .mini-queue-container {
   background: transparent !important;
   border: none !important;
   box-shadow: none !important;
-  transform: translateX(6px);
+  transform: translateX(8px);
 }
 
 .mini-queue-item.active {
@@ -1070,56 +1101,54 @@ body.mini-mode .mini-queue-container {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  max-width: 86%;
+  max-width: 88%;
 }
 
 .mini-queue-item-title {
-  font-size: 0.9rem;
+  font-size: clamp(0.92rem, 1.25vw, 1.08rem);
   font-weight: 700;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   color: var(--text-white);
-  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.7);
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.75);
   transition: color 0.2s ease;
 }
 
 .mini-queue-item.active .mini-queue-item-title {
   color: var(--accent-primary) !important;
-  text-shadow: 0 0 12px var(--accent-glow), 0 2px 8px rgba(0, 0, 0, 0.8) !important;
+  text-shadow: 0 0 14px var(--accent-glow), 0 2px 8px rgba(0, 0, 0, 0.8) !important;
 }
 
 .mini-queue-item-artist {
-  font-size: 0.7rem;
+  font-size: clamp(0.72rem, 0.95vw, 0.82rem);
   color: var(--text-dim);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   text-shadow: 0 1px 6px rgba(0, 0, 0, 0.6);
+  margin-top: 2px;
 }
 
 .mini-queue-item-indicator {
-  font-size: 1rem;
+  font-size: 1.15rem;
   color: var(--accent-primary);
   opacity: 0;
   filter: drop-shadow(0 0 8px var(--accent-glow));
 }
-.mini-queue-item.active .mini-queue-item-indicator {
-  opacity: 1;
-}
+.mini-queue-item.active .mini-queue-item-indicator { opacity: 1; }
 
-/* Playlist Row Action Buttons in Mini Mode */
 .mini-playlist-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
 }
 .mini-playlist-del-btn {
   background: transparent;
   border: none;
   color: inherit;
   opacity: 0.5;
-  font-size: 1.05rem;
+  font-size: 1.1rem;
   cursor: pointer;
   padding: 4px;
   transition: var(--transition);

@@ -626,7 +626,6 @@ function renderMiniQueue() {
       return;
     }
 
-    // Top action row to create more playlists
     const topActionRow = document.createElement("div");
     topActionRow.style.cssText = "display: flex; justify-content: flex-end; padding: 2px 8px 8px;";
     const createMoreBtn = document.createElement("button");
@@ -1300,7 +1299,7 @@ function loadTrack(index) {
     miniTrackArtist.textContent = (!track.artist || track.artist.trim() === "") ? FALLBACK_ARTIST : track.artist;
   }
 
-  // Update Floating Mini List Active Row
+  // Update Floating Mini List Active Highlight
   if (miniQueueList) {
     document.querySelectorAll(".mini-queue-item").forEach((item) => {
       const isCur = item.querySelector(".mini-queue-item-title")?.textContent === track.title;
@@ -1923,14 +1922,35 @@ function handleCustomBgUpload(e) {
 
 function setupSwipeGestures() {
   let touchStartX = 0;
-  window.addEventListener("touchstart", (e) => { touchStartX = e.touches[0].clientX; }, { passive: true });
+  let touchStartY = 0;
+
+  window.addEventListener("touchstart", (e) => { 
+    touchStartX = e.touches[0].clientX; 
+    touchStartY = e.touches[0].clientY; 
+  }, { passive: true });
+
   window.addEventListener("touchend", (e) => {
-    if (isArcadeMode || document.body.classList.contains("mini-mode") || e.target.closest("#volume-slider") || e.target.closest("#seek-container") || e.target.closest(".playlist-drawer") || e.target.closest(".assist-ball-wrapper") || e.target.closest(".floating-score-tab") || e.target.closest(".mini-queue-container")) return;
+    if (isArcadeMode || e.target.closest("#volume-slider") || e.target.closest("#seek-container") || e.target.closest(".playlist-drawer") || e.target.closest(".assist-ball-wrapper") || e.target.closest(".floating-score-tab")) return;
+
     const touchEndX = e.changedTouches[0].clientX;
+    const touchEndY = e.changedTouches[0].clientY;
     const diffX = touchEndX - touchStartX;
-    if (Math.abs(diffX) > 60) {
-      if (diffX < 0) nextTrack();
-      else prevTrack();
+    const diffY = touchEndY - touchStartY;
+
+    // Swipe Down anywhere on screen minimizes full player to mini mode!
+    if (!document.body.classList.contains("mini-mode")) {
+      if (diffY > 70 && Math.abs(diffX) < 60) {
+        minimizeToMiniPlayer();
+        return;
+      }
+    }
+
+    // Horizontal Swipes to change track
+    if (!document.body.classList.contains("mini-mode")) {
+      if (Math.abs(diffX) > 60 && Math.abs(diffY) < 50) {
+        if (diffX < 0) nextTrack();
+        else prevTrack();
+      }
     }
   });
 }
@@ -2909,6 +2929,15 @@ function setupListeners() {
   if (closeDrawerBtn) closeDrawerBtn.addEventListener("click", closeAllDrawers);
   if (closeThemeBtn) closeThemeBtn.addEventListener("click", closeAllDrawers);
   if (drawerBackdrop) drawerBackdrop.addEventListener("click", closeAllDrawers);
+
+  // Desktop Screen-Wide Scroll Handler for Mini Mode (Screen par kahin bhi wheel ghumane se scroll hoga)
+  window.addEventListener("wheel", (e) => {
+    if (document.body.classList.contains("mini-mode") && miniQueueList) {
+      if (!e.target.closest("#mini-player")) {
+        miniQueueList.scrollTop += e.deltaY;
+      }
+    }
+  }, { passive: true });
 
   let lastTouchTime = 0;
   function handleZenTrigger(e) {
